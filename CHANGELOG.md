@@ -1,0 +1,159 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.10.2] - 2025-03-04
+
+### Fixed
+
+- **containsMatch** – Remove `e.includes(o)` branch to prevent false-negatives: short or vague observed strings (e.g. "j") could previously match longer expected standards (e.g. "lowercase j on page 10"), silently suppressing High-severity discrepancies. Now uses one-directional matching only: observed must contain the full expected value.
+- **README** – Fix malformed `[!TIP]` callout: add blockquote prefix (`> [!TIP]`) so it renders as a styled alert on GitHub.
+- **Test file naming** – Rename `integration.test.ts` to `property-extraction.test.ts`; tests are unit tests for extraction helpers with no external dependencies.
+
+### Added
+
+- **Forensic test** – New test: vague observed value (e.g. "j") does NOT match expected "lowercase j on page 10"; ensures no false-negatives from short observed strings.
+
+## [0.10.1] - 2025-03-04
+
+### Fixed
+
+- **extractMultiLineText** – Align parameter type with `extractRichText`: support `plain_text` and `text.content` fallback, optional fields. Resolves type mismatch in stricter compilation contexts.
+- **audit_artifact_consistency** – Remove dead `medCount` logic; no code path assigns Medium severity, so `- medCount * 20` was permanently zero.
+- **AuditSeverity** – Remove orphaned `Medium` from enum; audit tool only produces Low and High. Resolves schema/runtime inconsistency.
+- **CHANGELOG** – Remove duplicate [0.10.0] entry.
+- **ROADMAP** – Fix malformed bold syntax (`** Confidence-by-Field:**` → `**Confidence-by-Field:**`).
+
+## [0.10.0] - 2025-03-04
+
+### Added
+
+- **Property extraction tests** – `src/__tests__/property-extraction.test.ts` mocks Notion property objects and verifies `extractTitle` and `extractRichText` work correctly for both `title` and `rich_text` property types. Covers plain_text, text.content, multiple segments, and edge cases.
+
+### Changed
+
+- **search_books** – When `query` is provided, it is now used as a Notion filter on the `Title` property using the `title` filter type (not `rich_text`). Ensures text search correctly targets the database's primary title column.
+
+- **fetchBookStandard** – Fixed property extraction: Notion `Title` properties are type `title`, not `rich_text`. Added `extractTitle()` to pull `plain_text` from the `title` array. Updated `extractRichText()` to support both `plain_text` and `text.content`. Both helpers exported for testing.
+
+- **audit_artifact_consistency** – Standardized severity: Points of Issue discrepancies are HIGH severity with significant confidence deduction (45 points per High). Updated schema documentation to reflect Points of Issue = High. Added comment explaining bidirectional substring matching is for demo flexibility; production would require normalized tokens.
+
+## [0.9.0] - 2025-03-04
+
+### Added
+
+- **sample_data** – CSV files for project replication: `books_catalog.csv`, `master_bibliography.csv`, `market_results.csv`, `audit_history.csv`. Import into Notion to recreate the forensic test environment used for Alice, Hobbit, and Gatsby audits.
+
+### Changed
+
+- **generate_exhibit_label** – Rewritten with new inputs (`book_data`, `audit_results`, `market_citation`) and high-fidelity museum placard format. Sections: Archival Description, Forensic Verification Summary, Valuation Context. Disclaimer appended. Forensic Workflow: once an audit is successful, offer to generate a formal Exhibit Label; suggest saving output to the Notion page's Full Report field.
+
+## [0.8.0] - 2025-03-04
+
+### Added
+
+- **get_market_signals** – Include `citation` field for each market result. Citation property (url or rich_text) is retrieved from the Market Results database and surfaced in the tool output. Forensic Workflow: when reporting market findings, always include the citation link or reference provided in the Market Results to ensure evidence-based auditing.
+
+## [0.7.0] - 2025-03-04
+
+### Added
+
+- **create_audit_log** – `catalog_page_id` (required string). Notion page ID from the Catalog search result (search_books or find_book_in_master_bibliography); mapped to `'Linked Book'` relation property so audit logs link to catalog entries. Forensic Workflow: agent MUST pass the id from the Catalog search result into catalog_page_id to maintain the relational thread.
+
+## [0.6.0] - 2025-03-04
+
+### Added
+
+- **create_audit_log** – `audit_date` argument (optional string, ISO 8601), defaulting to current time via `new Date().toISOString()`. Maps to Notion property `'Audit Date'` (date type).
+
+### Changed
+
+- **find_book_in_master_bibliography** – Title filter uses `equals` (not `contains`) to avoid fuzzy search misses. `fetchBookStandard` parses Points of Issue and First Edition Indicators from `multi_select` arrays in the full page response, with fallback to rich_text.
+
+## [0.5.0] - 2025-03-04
+
+### Changed
+
+- **create_audit_log** – Map book_title to the primary title property `"title"` (lowercase), the default primary column for Notion databases. Add optional `NOTION_AUDIT_LOG_TITLE_PROPERTY` env var if the column was renamed. Remove reference to "Book Title" property.
+
+- **find_book_in_master_bibliography**, **get_market_signals** – Document that both use `databases.query` with Title filter (not `notion.search`), scoping lookups to the specific database rather than the whole workspace.
+
+## [0.4.0] - 2025-03-04
+
+### Added
+
+- **Production test suite** – Vitest
+  - `vitest` dev dependency, `npm run test` script
+  - `src/__tests__/forensic-logic.test.ts` with mocked Notion client
+  - Tests for `audit_artifact_consistency`: Point of Issue typo (wabe vs wade) → High severity, first_edition_indicators fail, missing points, year mismatch, confidence score
+
+### Changed
+
+- **audit_artifact_consistency** – points_of_issue failures now return High severity (was Medium). Point-of-issue typo mismatches indicate forgery/wrong state.
+
+## [0.3.0] - 2025-03-04
+
+### Added
+
+- **create_audit_log** tool
+  - Create permanent audit records in the Audit Logs Notion database
+  - Arguments: book_title, result (enum: Pass, Flagged, Fail), summary, full_report
+  - Forensic Workflow step 6: after audit is complete, automatically call to maintain permanent record
+  - `createAuditLog()`, `getAuditLogDatabaseId()` in notion client
+  - `NOTION_AUDIT_LOG_DATABASE_ID` environment variable
+
+## [0.2.0] - 2025-03-04
+
+### Added
+
+- **update_book_status** tool
+  - Update the Status property of any Notion page by page_id and status string
+  - Forensic Workflow step 5: when audit reveals High or Medium severity discrepancy, update status to "Flagged for Review"
+  - `updateBookStatus()` in notion client
+
+## [0.1.0] - 2025-03-04
+
+### Added
+
+- **Project setup** – TypeScript MCP server for rare books intelligence
+  - `@modelcontextprotocol/sdk`, `@notionhq/client`, `zod`, `express`
+  - ES modules, strict TypeScript config, Node ≥18
+
+- **General search path** – `search_books` tool
+  - Query Notion books database by author, year, condition
+  - `BookMetadataSchema`, `BookSearchParamsSchema` for validation
+  - `searchBooks()`, `bookToNotionProperties()` in notion client
+
+- **Forensic audit path** – `audit_artifact_consistency` tool
+  - Compare observed artifact vs Master Bibliography ground truth
+  - Severity: High (first_edition_indicators), Medium (points_of_issue), Low (other)
+  - `BookStandardSchema`, `ObservedArtifactSchema`, `AuditReportSchema`
+  - `fetchBookStandard()`, `findBookStandardInMasterBibliography()`
+
+- **Find book in Master Bibliography** – `find_book_in_master_bibliography` tool
+  - Returns page IDs and BookStandards when found
+  - If not found, suggests adding the book to Notion first
+
+- **Market signals** – `get_market_signals` tool
+  - Query Market Results for last 3 sales, return average Hammer Price
+  - Third Notion database for auction/sales data
+
+- **Reporting** – `generate_exhibit_label` tool
+  - Produce Markdown Exhibit Placard from audit report + book standard
+  - Curator's Note and Caveat Emptor / Forensic Note (when Medium or High severity)
+
+- **Orchestration** – Forensic Workflow instructions
+  - LLM guidance: find → audit → market signals → offer exhibit label
+  - Graceful handling when book is missing from Master Bibliography
+
+- **Streamable HTTP transport** – ngrok / Notion Custom Agent support
+  - Express server on port 3000, `/mcp` endpoint
+  - Stateless mode for remote clients
+  - Binds to `0.0.0.0` for tunnel access
+
+- **Configuration**
+  - `.env.example` for `NOTION_API_KEY`, books DB, Master Bibliography DB, Market Results DB
+  - `PORT` env var (default 3000)
