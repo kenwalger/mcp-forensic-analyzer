@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.9] - 2026-03-10
+
+### Fixed
+
+- **Accountant prompt contamination** – `classify_query` now uses `get_model_client("ollama", raw_system=True)` so the accountant's strict LEVEL_1/LEVEL_2 classifier instructions are not contaminated by the forensic `local_slm_system_prefix` (CoT) injected for supervisor synthesis. New `raw_system` parameter on `get_model_client` bypasses the prefix for classification calls.
+
+### Changed
+
+- **orchestrator --provider warning** – When both `--use-accountant` and `--provider` are supplied, log a warning that `--provider` is ignored; the router chooses the provider based on query complexity.
+
 ## [0.13.8] - 2026-03-10
 
 ### Fixed

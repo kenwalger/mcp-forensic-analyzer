@@ -63,7 +63,7 @@ async def classify_query(query: str) -> str:
     old_model = os.environ.get("LLM_MODEL")
     os.environ["LLM_MODEL"] = ACCOUNTANT_MODEL
     try:
-        async with get_model_client("ollama") as complete:
+        async with get_model_client("ollama", raw_system=True) as complete:
             raw = await complete(system, user)
     except Exception as e:
         print(f"Accountant classification failed ({e}), defaulting to LEVEL_2 for safety.")

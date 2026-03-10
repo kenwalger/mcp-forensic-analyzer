@@ -127,12 +127,16 @@ class _LLMClientContext:
                 await result
 
 
-def get_model_client(provider: str) -> _LLMClientContext:
+def get_model_client(provider: str, *, raw_system: bool = False) -> _LLMClientContext:
     """
     Abstract LLM client factory. Returns an async context manager that yields
     complete(system_prompt, user_prompt) -> str and closes the client on exit.
 
     Providers: anthropic, openai, ollama, lm_studio.
+
+    When raw_system=True, Ollama/LM Studio clients skip the local_slm_system_prefix
+    (used by The Accountant for classification; the forensic CoT prefix would
+    conflict with the strict LEVEL_1/LEVEL_2 classifier persona).
     """
     # Guard empty LLM_MODEL: env var set to "" yields empty model name → API errors
     model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODELS.get(
@@ -145,9 +149,9 @@ def get_model_client(provider: str) -> _LLMClientContext:
         return _make_openai_client(model)
     # [Post 3 - Edge AI] Local inference paths: Ollama and LM Studio
     elif provider == "ollama":
-        return _make_ollama_client(model)
+        return _make_ollama_client(model, raw_system=raw_system)
     elif provider == "lm_studio":
-        return _make_lm_studio_client(model)
+        return _make_lm_studio_client(model, raw_system=raw_system)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -196,7 +200,7 @@ def _make_openai_client(model: str):
 # [Post 3 - Edge AI] Ollama local inference. Uses the Instruction-Tuning block
 # (local_slm_system_prefix from config/prompts.yaml) for Chain of Thought guidance
 # when handling MCP tool schemas—unlike larger cloud models that can infer structure.
-def _make_ollama_client(model: str):
+def _make_ollama_client(model: str, *, raw_system: bool = False):
     try:
         from ollama import AsyncClient
     except ImportError:
@@ -208,9 +212,11 @@ def _make_ollama_client(model: str):
     _timeout = LLM_TIMEOUT
 
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
-        prompts = _get_prompts()
-        full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
+        if raw_system:
+            full_system = system_prompt  # e.g. Accountant classification; no CoT prefix
+        else:
+            prompts = _get_prompts()
+            full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
         r = await asyncio.wait_for(
             client.chat(
                 model=model,
@@ -229,7 +235,7 @@ def _make_ollama_client(model: str):
 # [Post 3 - Edge AI] LM Studio local inference. OpenAI-compatible API at localhost.
 # Same Instruction-Tuning block as Ollama: SLMs require explicit Chain of Thought
 # instructions to parse MCP tool output correctly; cloud models do not.
-def _make_lm_studio_client(model: str):
+def _make_lm_studio_client(model: str, *, raw_system: bool = False):
     try:
         from openai import AsyncOpenAI
     except ImportError:
@@ -239,9 +245,11 @@ def _make_lm_studio_client(model: str):
     client = AsyncOpenAI(base_url=base_url, api_key="lm-studio", timeout=LLM_TIMEOUT)
 
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
-        prompts = _get_prompts()
-        full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
+        if raw_system:
+            full_system = system_prompt
+        else:
+            prompts = _get_prompts()
+            full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
         r = await client.chat.completions.create(
             model=model,
             messages=[
@@ -675,6 +683,12 @@ def main() -> None:
     if args.use_accountant:
         if not args.query:
             parser.error("--query is required when using --use-accountant")
+        if args.provider and args.provider != "none":
+            logger.warning(
+                "--provider=%s ignored when using --use-accountant; "
+                "provider is chosen by the router based on query complexity.",
+                args.provider,
+            )
         from router import run_with_accountant
         report = asyncio.run(
             run_with_accountant(args.query, args.title, args.author, observed)
