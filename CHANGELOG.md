@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **update_book_status logic gap** – Step 6 in FORENSIC_WORKFLOW_INSTRUCTIONS now conditions update_book_status on human authorization (step 3 approval); do not flag disputed findings in Notion. Prevents agents from flagging books when the human explicitly rejected the HIGH finding.
 - **Confidence recalculation ignores MEDIUM/other** – Post-dispute confidence now includes penalty for MEDIUM (20) and unknown severities (10); High=45, Low=5 unchanged. Prevents inflated scores when non-HIGH/LOW discrepancies remain.
 - **Blocking input() in Guardian handshake** – Use `asyncio.to_thread(input, ...)` so the async event loop is not blocked during human authorization prompts.
 - **Prompt injection in disputed findings** – Disputed block passed through `_sanitize_tool_output_for_llm()` before LLM synthesis, consistent with Librarian/Analyst sanitization.

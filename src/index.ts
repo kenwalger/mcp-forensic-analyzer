@@ -28,7 +28,7 @@ const FORENSIC_WORKFLOW_INSTRUCTIONS = `
 3. request_human_signature – For any HIGH severity finding, you MUST request human authorization before finalizing. You are a Co-Pilot; do not act autonomously on high-stakes accusations.
 4. get_market_signals – When reporting market findings, always include the citation link or reference provided in the Market Results to ensure evidence-based auditing.
 5. generate_exhibit_label – Once an audit is successful, offer to generate a formal Exhibit Label. If the user agrees, use the generate_exhibit_label tool and suggest saving the output back to the Notion page's 'Full Report' field.
-6. update_book_status – If an audit reveals a High severity discrepancy, immediately update the Notion status to "Flagged for Review".
+6. update_book_status – Only when a High severity discrepancy has been explicitly authorized by the human (per step 3). Do not flag findings that were disputed or rejected; disputed findings belong in "Requires Further Investigation" instead. If the human has not yet approved, wait for approval before calling update_book_status.
 7. create_audit_log – After an audit is complete, automatically call create_audit_log to maintain a permanent record. You MUST pass the id from the Catalog search result into the catalog_page_id parameter of create_audit_log to maintain the relational thread.
 `;
 
