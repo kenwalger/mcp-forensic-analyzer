@@ -1,5 +1,7 @@
 # MCP Python SDK for stdio client
 mcp>=1.25.0
+# Prompt externalization (config/prompts.yaml)
+pyyaml>=6.0
 
 # LLM providers (install as needed)
 # Cloud: pip install anthropic  # for --provider anthropic

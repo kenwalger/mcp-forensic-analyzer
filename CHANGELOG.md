@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.6] - 2026-03-10
+
+### Changed
+
+- **Version strings** – `src/index.ts` JSDoc and McpServer constructor updated from 0.1.0 to 0.13.6 to match CHANGELOG.
+- **FORENSIC_WORKFLOW_INSTRUCTIONS** – Removed "Medium" from update_book_status step; audit tool emits Low or High only, so "High severity discrepancy" avoids misleading LLM clients.
+
+### Fixed
+
+- **_parse_report deduplication** – Removed set-based dedup; discrepancies are now passed through to _compute_precision_recall so Counter-based handling correctly processes multi-indicator cases.
+- **_reasoning_quality consistency check** – Anchored to `Consistency:\s*(PASS|FAIL)` regex instead of loose "PASS" or "FAIL" anywhere in report.
+
+## [0.13.5] - 2026-03-10
+
+### Added
+
+- **Evaluator --threshold** – CLI option for pass/fail exit threshold (default 70); configurable via `--threshold N`.
+
+### Changed
+
+- **Audit framing inside fence** – Moved audit_instruction framing into the `---BEGIN TOOL OUTPUT---` / `---END TOOL OUTPUT---` block so the supervisor_system guard covers it; previously it was outside the fence.
+- **Analyst prompt severity** – Aligned with audit tool: "LOW (cosmetic), HIGH (critical mismatch). The audit tool currently emits Low or High only; MEDIUM is reserved for future use." Prevents LLM-generated MEDIUM false positives in evaluation.
+- **_compute_precision_recall** – Switched from set-based to Counter-based deduplication; correctly handles duplicate (field, severity) pairs for multi-indicator cases.
+
+## [0.13.4] - 2026-03-10
+
+### Added
+
+- **run_forensic_audit book_standard param** – Optional `book_standard` argument allows callers (e.g. evaluator) to pass pinned reference data; when provided, librarian lookup is skipped and the given standard is used for deterministic evaluation.
+
+### Changed
+
+- **Evaluator uses golden dataset book_standard** – `run_evaluation` now passes `case.get("book_standard")` to `run_forensic_audit`, so evaluation runs against the dataset's reference standard rather than librarian/sample fallback. Fixes unreliable error-publisher-binding and other cases that depend on exact standard data.
+
+### Fixed
+
+- **Lost traceback in evaluator error handling** – Replaced `_logger.exception()` (no-op outside except block) with `_logger.error(..., exc_info=r)` so exception tracebacks are logged when `asyncio.gather(return_exceptions=True)` returns an exception.
+- **Prompt injection via unsanitized audit framing** – `observed` and `book_standard` data passed through `_sanitize_tool_output_for_llm()` before substitution into the analyst audit_instruction; prevents malicious content in caller-supplied fields from being injected outside the `---BEGIN TOOL OUTPUT---` guard.
+
+## [0.13.3] - 2026-03-10
+
+### Added
+
+- **AuditSeverity Medium** – `src/lib/schemas.ts` adds `"Medium"` to `AuditSeverity` enum so the schema aligns with the analyst prompt in `prompts_the_judge.yaml` (LOW/MEDIUM/HIGH). Audit tool still emits Low | High only; Medium reserved for future use.
+
+### Changed
+
+- **run_evaluation error handling** – `asyncio.gather` now uses `return_exceptions=True`; a single failing case no longer aborts the entire evaluation. Failed cases are logged, recorded with grade 0 and error details, and included in the results.
+- **prompts_the_judge.yaml** – Trailing newline added for POSIX EOF convention.
+
+## [0.13.2] - 2026-03-10
+
+### Fixed
+
+- **_substitute_prompt_template** – Replaced `re.sub` with `str.replace` to avoid backslash interpretation in replacement strings; `json.dumps` output (e.g. `\n`, `\t`) was being corrupted when passed to the LLM. Also removes unescaped `{`/`}` from regex pattern (Python 3.12+ deprecation).
+- **_parse_report case-sensitivity** – Discrepancy regex now uses `re.IGNORECASE`; analyst prompt instructs uppercase `[HIGH]`/`[LOW]`/`[MEDIUM]`, so LLM-generated reports were previously missed and precision/recall were wrong.
+- **_compute_precision_recall** – Severity comparison now case-insensitive; ensures golden dataset (`High`) matches LLM output (`HIGH`).
+- **_reasoning_quality** – Discrepancy-presence check now case-insensitive.
+
+## [0.13.1] - 2026-03-10
+
+### Added
+
+- **rubric_weights** – `config/prompts_the_judge.yaml` now defines `rubric_weights`; evaluator consumes them for heuristic grading. Fallback to defaults if the_judge not loaded.
+- **format_recognized** – Evaluator grade output includes `format_recognized`; `False` when no `Consistency: PASS|FAIL` line is found.
+
+### Changed
+
+- **prompts_the_judge rubric** – Rubric prompt text now aligns with `rubric_weights`: Consistency (20 pts), Precision (30), Recall (30), Reasoning (20). Ensures LLM-graded and heuristic scores are comparable.
+- **_get_prompts** – Switched from manual `_cache` attribute to `@functools.lru_cache(maxsize=1)`; tests can invalidate via `_get_prompts.cache_clear()`.
+- **run_evaluation** – Golden dataset cases now run in parallel via `asyncio.gather()` for faster evaluation, especially with LLM providers.
+
+### Fixed
+
+- **Medium severity in scoring** – `_parse_report` and `_reasoning_quality` now recognize `[Medium]` discrepancy tags; analyst prompt assigns MEDIUM, so reports were previously misgraded when Medium discrepancies appeared.
+- **_parse_report silent default** – When no `Consistency: PASS|FAIL` line is found, evaluator applies conservative consistency score (0) and logs a warning instead of silently defaulting to pass.
+- **_substitute_prompt_template usage** – Orchestrator now injects substituted `analyst.audit_instruction` (`{{observed_data}}`, `{{standard_data}}`) into the supervisor prompt when using an LLM provider.
+
+## [0.13.0] - 2026-03-10
+
+### Added
+
+- **Prompt externalization** – `config/prompts.yaml` holds `local_slm_system_prefix` and `supervisor_system`; `config/prompts_the_judge.yaml` holds librarian, analyst, and judge agent prompts (Series 2 – The Judge). Both ingested via `_load_prompts()` / `_get_prompts()`. Adds `pyyaml>=6.0` to requirements.
+- **Judge Framework** – `tests/golden_dataset.json` with 5 forensic cases (2 clean, 3 with year/points-of-issue/binding discrepancies). `examples/evaluator.py` runs orchestrator against the dataset and grades output on Precision, Recall, Reasoning Quality (0–100 rubric). Exits 0 if average ≥ 70.
+- **Structured logging** – LLM synthesis failures call `logger.exception()` with provider and error details; deterministic fallback still returned. Basic logging config in orchestrator `main()`.
+
+### Changed
+
+- **orchestrator.py** – Prompts moved to config; logging for synthesis errors; evaluator usage in `usage.md`.
+- **audit_artifact_consistency** – Input schema for `observed` extended with `binding_type_observed` and `paper_watermark_observed` for golden dataset binding case.
+- **audit-artifact-consistency.ts** – Phase 5 Tokenization (ROADMAP) comment added; ready for stricter tokenization per roadmap.
+
+### Fixed
+
+- **evaluator _reasoning_quality** – Replace `len(re.finditer(...))` with `re.search(...) is None`; `re.finditer` returns a non-Sized iterator, causing TypeError for clean-case grading.
+- **orchestrator logger.exception** – Remove redundant `exc_info=True`; `logger.exception()` already captures current exception info.
+- **orchestrator PEP 8 E302** – Add second blank line before `_load_prompts()` top-level function.
+
 ## [0.12.0] - 2026-03-10
 
 ### Added

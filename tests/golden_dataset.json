@@ -1,0 +1,176 @@
+{
+  "version": "1.0",
+  "description": "Golden forensic audit cases for Judge Framework evaluation",
+  "cases": [
+    {
+      "id": "clean-hobbit",
+      "expected_outcome": "clean",
+      "description": "The Hobbit - all observed data matches ground truth",
+      "title": "The Hobbit",
+      "author": "J.R.R. Tolkien",
+      "book_standard": {
+        "title": "The Hobbit",
+        "author": "J.R.R. Tolkien",
+        "publisher": "George Allen & Unwin",
+        "expected_first_edition_year": 1937,
+        "binding_type": "Cloth",
+        "first_edition_indicators": [
+          "1st printing has no mention of later impressions",
+          "George Allen & Unwin at foot of title page"
+        ],
+        "points_of_issue": [
+          "Typo \"Dodgeson\" instead of \"Dodgson\" on back flap"
+        ]
+      },
+      "observed": {
+        "first_edition_indicators_observed": [
+          "1st printing has no mention of later impressions",
+          "George Allen & Unwin at foot of title page"
+        ],
+        "points_of_issue_observed": [
+          "Typo \"Dodgeson\" instead of \"Dodgson\" on back flap"
+        ],
+        "observed_year": 1937
+      },
+      "expected_consistency": true,
+      "expected_discrepancies": []
+    },
+    {
+      "id": "clean-gatsby",
+      "expected_outcome": "clean",
+      "description": "The Great Gatsby - all observed data matches ground truth",
+      "title": "The Great Gatsby",
+      "author": "F. Scott Fitzgerald",
+      "book_standard": {
+        "title": "The Great Gatsby",
+        "author": "F. Scott Fitzgerald",
+        "publisher": "Scribner",
+        "expected_first_edition_year": 1925,
+        "binding_type": "Cloth",
+        "first_edition_indicators": [
+          "Published April, 1925 on copyright page",
+          "no later printings listed"
+        ],
+        "points_of_issue": [
+          "lowercase \"j\" in \"jay gatsby\" on back of dust jacket"
+        ]
+      },
+      "observed": {
+        "first_edition_indicators_observed": [
+          "Published April, 1925 on copyright page",
+          "no later printings listed"
+        ],
+        "points_of_issue_observed": [
+          "lowercase \"j\" in \"jay gatsby\" on back of dust jacket"
+        ],
+        "observed_year": 1925
+      },
+      "expected_consistency": true,
+      "expected_discrepancies": []
+    },
+    {
+      "id": "error-year-mismatch",
+      "expected_outcome": "discrepancy",
+      "description": "The Hobbit - observed year 1940 (reprint) vs expected 1937; year mismatch",
+      "title": "The Hobbit",
+      "author": "J.R.R. Tolkien",
+      "book_standard": {
+        "title": "The Hobbit",
+        "author": "J.R.R. Tolkien",
+        "publisher": "George Allen & Unwin",
+        "expected_first_edition_year": 1937,
+        "binding_type": "Cloth",
+        "first_edition_indicators": [
+          "1st printing has no mention of later impressions",
+          "George Allen & Unwin at foot of title page"
+        ],
+        "points_of_issue": [
+          "Typo \"Dodgeson\" instead of \"Dodgson\" on back flap"
+        ]
+      },
+      "observed": {
+        "first_edition_indicators_observed": [
+          "1st printing has no mention of later impressions",
+          "George Allen & Unwin at foot of title page"
+        ],
+        "points_of_issue_observed": [
+          "Typo \"Dodgeson\" instead of \"Dodgson\" on back flap"
+        ],
+        "observed_year": 1940
+      },
+      "expected_consistency": false,
+      "expected_discrepancies": [
+        {"field": "expected_first_edition_year", "severity": "Low"}
+      ]
+    },
+    {
+      "id": "error-points-of-issue",
+      "expected_outcome": "discrepancy",
+      "description": "The Great Gatsby - wrong points of issue (missing typo); High severity",
+      "title": "The Great Gatsby",
+      "author": "F. Scott Fitzgerald",
+      "book_standard": {
+        "title": "The Great Gatsby",
+        "author": "F. Scott Fitzgerald",
+        "publisher": "Scribner",
+        "expected_first_edition_year": 1925,
+        "binding_type": "Cloth",
+        "first_edition_indicators": [
+          "Published April, 1925 on copyright page",
+          "no later printings listed"
+        ],
+        "points_of_issue": [
+          "lowercase \"j\" in \"jay gatsby\" on back of dust jacket"
+        ]
+      },
+      "observed": {
+        "first_edition_indicators_observed": [
+          "Published April, 1925 on copyright page",
+          "no later printings listed"
+        ],
+        "points_of_issue_observed": [],
+        "observed_year": 1925
+      },
+      "expected_consistency": false,
+      "expected_discrepancies": [
+        {"field": "points_of_issue", "severity": "High"}
+      ]
+    },
+    {
+      "id": "error-publisher-binding",
+      "expected_outcome": "discrepancy",
+      "description": "The Hobbit - binding type mismatch (Cloth expected, Paper observed)",
+      "title": "The Hobbit",
+      "author": "J.R.R. Tolkien",
+      "book_standard": {
+        "title": "The Hobbit",
+        "author": "J.R.R. Tolkien",
+        "publisher": "George Allen & Unwin",
+        "expected_first_edition_year": 1937,
+        "binding_type": "Cloth",
+        "first_edition_indicators": [
+          "1st printing has no mention of later impressions",
+          "George Allen & Unwin at foot of title page"
+        ],
+        "points_of_issue": [
+          "Typo \"Dodgeson\" instead of \"Dodgson\" on back flap"
+        ]
+      },
+      "observed": {
+        "first_edition_indicators_observed": [
+          "1st printing has no mention of later impressions",
+          "George Allen & Unwin at foot of title page"
+        ],
+        "points_of_issue_observed": [
+          "Typo \"Dodgeson\" instead of \"Dodgson\" on back flap"
+        ],
+        "observed_year": 1937,
+        "binding_type_observed": "Paper Wrap"
+      },
+      "expected_consistency": false,
+      "expected_discrepancies": [
+        {"field": "binding_type", "severity": "Low"}
+      ]
+    }
+  ]
+}

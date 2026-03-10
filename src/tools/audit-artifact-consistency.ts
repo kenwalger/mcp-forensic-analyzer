@@ -12,6 +12,10 @@ import { fetchBookStandard } from "../lib/notion.js";
  * Severity hierarchy:
  * - High: first_edition_indicators or points_of_issue fail (typo/state mismatch indicates forgery or wrong edition)
  * - Low: other discrepancies (binding, paper, year, etc.)
+ *
+ * Phase 5 Tokenization (ROADMAP): Ready for transition from substring matching
+ * to normalized structured tokens. containsMatch() and normalizeStrings() are
+ * candidates for tokenization/stemming to improve forensic accuracy.
  */
 
 export interface AuditToolInput {

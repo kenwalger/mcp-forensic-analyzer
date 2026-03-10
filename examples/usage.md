@@ -90,3 +90,14 @@ The server exposes these tools (adapt if you add custom tools):
 
 - **Librarian:** `find_book_in_master_bibliography` — pulls book details
 - **Analyst:** `audit_artifact_consistency` — checks for discrepancies
+
+## Judge Framework Evaluation
+
+Run the evaluator against the golden dataset to grade report quality:
+
+```bash
+python evaluator.py --provider none
+python evaluator.py --provider ollama -v
+```
+
+Scores each case on Precision, Recall, and Reasoning Quality (0-100).
