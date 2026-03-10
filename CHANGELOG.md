@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.8] - 2026-03-10
+
+### Fixed
+
+- **router.py JSON parsing** – Catch `ValueError` and `TypeError` in addition to `json.JSONDecodeError` when parsing `--observed-indicators`/`--observed-points`; matches orchestrator behavior and prevents tracebacks on non-array JSON input.
+- **_build_accountant_prompt** – Simplify return type from `tuple[str, str]` to `str`; second value was unused.
+
+### Changed
+
+- **Version alignment** – `package.json` and `src/index.ts` set to 0.13.8 to match CHANGELOG.
+
 ## [0.13.7] - 2026-03-10
 
 ### Added

@@ -35,7 +35,7 @@ ACCOUNTANT_LEVEL_1_PROVIDER = os.environ.get("ACCOUNTANT_LEVEL_1_PROVIDER", "oll
 ACCOUNTANT_LEVEL_2_PROVIDER = os.environ.get("ACCOUNTANT_LEVEL_2_PROVIDER", "anthropic")
 
 
-def _build_accountant_prompt() -> tuple[str, str]:
+def _build_accountant_prompt() -> str:
     """Load accountant system and routing logic from prompts.yaml."""
     prompts = _get_prompts()
     accountant = prompts.get("accountant", {}) or {}
@@ -50,8 +50,7 @@ def _build_accountant_prompt() -> tuple[str, str]:
             "LEVEL_1: Simple retrieval or formatting. "
             "LEVEL_2: Complex forensic reasoning, multi-step analysis, comparative evaluation."
         )
-    full_system = f"{system}\n\n{routing}"
-    return full_system, routing
+    return f"{system}\n\n{routing}"
 
 
 async def classify_query(query: str) -> str:
@@ -59,7 +58,7 @@ async def classify_query(query: str) -> str:
     Use a light model (Ollama) to classify the query into LEVEL_1 or LEVEL_2.
     Returns "LEVEL_1" or "LEVEL_2".
     """
-    system, _ = _build_accountant_prompt()
+    system = _build_accountant_prompt()
     user = f"Classify this request:\n\n{query}\n\nRespond with LEVEL_1 or LEVEL_2 only."
     old_model = os.environ.get("LLM_MODEL")
     os.environ["LLM_MODEL"] = ACCOUNTANT_MODEL
@@ -155,6 +154,8 @@ def main() -> None:
                 raise ValueError("must be JSON arrays")
         except json.JSONDecodeError as e:
             parser.error(f"Invalid JSON: {e}")
+        except (ValueError, TypeError) as e:
+            parser.error(f"--observed-indicators/--observed-points: {e}")
         observed = {
             "first_edition_indicators_observed": indicators,
             "points_of_issue_observed": points,
