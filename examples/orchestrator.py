@@ -423,11 +423,12 @@ async def analyst_agent(
         return {"error": False, "data": None, "raw": text}
 
 
-def _apply_guardian_handshake(
+async def _apply_guardian_handshake(
     analyst_result: dict,
 ) -> tuple[dict, list[dict]]:
     """
     Human-in-the-Loop: if Analyst has HIGH discrepancies, prompt for authorization.
+    Uses asyncio.to_thread for input() to avoid blocking the event loop.
     Returns (modified_analyst_result, disputed_discrepancies).
     disputed_discrepancies are moved to "Requires Further Investigation".
     """
@@ -450,7 +451,10 @@ def _apply_guardian_handshake(
             answer = "no"
         else:
             try:
-                answer = input("  Do you authorize this forensic finding? (yes/no): ").strip().lower()
+                answer = await asyncio.to_thread(
+                    input, "  Do you authorize this forensic finding? (yes/no): "
+                )
+                answer = answer.strip().lower()
             except EOFError:
                 logger.warning(
                     "Guardian: stdin closed (non-interactive); treating as 'no' and "
@@ -472,7 +476,15 @@ def _apply_guardian_handshake(
             d for d in disc
             if (d.get("field", ""), d.get("expected", ""), d.get("observed", ""), (d.get("severity") or "").upper()) not in disputed_keys
         ]
-        data = {**data, "discrepancies": new_disc}
+        high_count = sum(1 for d in new_disc if (d.get("severity") or "").upper() == "HIGH")
+        low_count = sum(1 for d in new_disc if (d.get("severity") or "").upper() == "LOW")
+        confidence = max(0, 100 - high_count * 45 - low_count * 5)
+        data = {
+            **data,
+            "discrepancies": new_disc,
+            "is_consistent": len(new_disc) == 0,
+            "confidence_score": confidence,
+        }
         analyst_result = {
             **analyst_result,
             "data": data,
@@ -642,7 +654,7 @@ async def run_forensic_audit(
             # 2b. Guardian: human-in-the-loop for HIGH severity findings
             disputed: list[dict] = []
             if guardian_enabled:
-                analyst_result, disputed = _apply_guardian_handshake(analyst_result)
+                analyst_result, disputed = await _apply_guardian_handshake(analyst_result)
 
             # 3. Supervisor: combine and output Forensic Report
             if provider and provider != "none":
@@ -673,13 +685,10 @@ async def run_forensic_audit(
                             tool_parts.append(f"Audit framing:\n{framed}")
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
                         if disputed:
-                            disputed_block = "\n".join(
-                                f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
-                                f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'"
-                                for d in disputed
-                            )
+                            disputed_raw = json.dumps(disputed)
+                            disputed_safe = _sanitize_tool_output_for_llm(disputed_raw)
                             tool_parts.append(
-                                f"Requires Further Investigation (Disputed by Human):\n{disputed_block}"
+                                f"Requires Further Investigation (Disputed by Human):\n{disputed_safe}"
                             )
                         tool_block = "\n\n".join(tool_parts)
                         user = (

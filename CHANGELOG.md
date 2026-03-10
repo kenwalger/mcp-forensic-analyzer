@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.14] - 2026-03-10
+
+### Fixed
+
+- **Blocking input() in Guardian handshake** – Use `asyncio.to_thread(input, ...)` so the async event loop is not blocked during human authorization prompts.
+- **Prompt injection in disputed findings** – Disputed block passed through `_sanitize_tool_output_for_llm()` before LLM synthesis, consistent with Librarian/Analyst sanitization.
+- **Stale consistency after disputes** – `is_consistent` and `confidence_score` are recalculated from remaining discrepancies after disputes are removed (avoids "Consistency: FAIL / Discrepancies: None").
+
 ## [0.13.13] - 2026-03-10
 
 ### Fixed
