@@ -1,0 +1,2 @@
+# MCP Python SDK for stdio client
+mcp>=1.25.0

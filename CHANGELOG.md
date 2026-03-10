@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-03-10
+
+### Added
+
+- **Python MCP client orchestrator** – `examples/orchestrator.py` implements a Supervisor Pattern:
+  - Connects to the TypeScript MCP server via stdio transport using the MCP Python SDK
+  - **Librarian agent** uses `find_book_in_master_bibliography` to pull book details
+  - **Analyst agent** uses `audit_artifact_consistency` to check for discrepancies
+  - **Supervisor** outputs a combined Forensic Report from both agents
+  - Demo mode: sample `BookStandard` fallback for "The Hobbit" and "The Great Gatsby" when Notion is not configured
+  - CLI options: `--title`, `--author`, `--observed-indicators`, `--observed-points`, `--observed-year`
+
+- **examples/requirements.txt** – Python dependency `mcp>=1.25.0` for the MCP SDK
+
+- **examples/usage.md** – Usage guide with prerequisites, CLI options, example commands, and Supervisor Pattern overview
+
+### Changed
+
+- **audit_artifact_consistency** – Added optional `book_standard` argument to input schema; allows inline BookStandard when Notion lookup is unavailable (enables demo mode without Notion configuration).
+
 ## [0.10.2] - 2025-03-04
 
 ### Fixed

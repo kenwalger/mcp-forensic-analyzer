@@ -18,6 +18,7 @@ import {
     executeUpdateBookStatus,
     executeCreateAuditLog,
 } from "./tools/index.js";
+import { BookStandardSchema } from "./lib/schemas.js";
 
 const FORENSIC_WORKFLOW_INSTRUCTIONS = `
 ## Forensic Workflow
@@ -64,6 +65,7 @@ server.registerTool(
         description: "Compare physical observations against Ground Truth.",
         inputSchema: {
             book_standard_page_id: z.string().optional(),
+            book_standard: BookStandardSchema.optional().describe("Inline BookStandard when Notion lookup unavailable"),
             observed: z.object({
                 first_edition_indicators_observed: z.array(z.string()),
                 points_of_issue_observed: z.array(z.string()),
