@@ -448,6 +448,10 @@ def _apply_guardian_handshake(
         try:
             answer = input("  Do you authorize this forensic finding? (yes/no): ").strip().lower()
         except EOFError:
+            logger.warning(
+                "Guardian: stdin closed (non-interactive); treating as 'no' and "
+                "disputing all HIGH findings. Use --no-guardian for CI."
+            )
             answer = "no"
         if answer != "yes":
             disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
@@ -662,6 +666,15 @@ async def run_forensic_audit(
                             )
                             tool_parts.append(f"Audit framing:\n{framed}")
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
+                        if disputed:
+                            disputed_block = "\n".join(
+                                f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
+                                f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'"
+                                for d in disputed
+                            )
+                            tool_parts.append(
+                                f"Requires Further Investigation (Disputed by Human):\n{disputed_block}"
+                            )
                         tool_block = "\n\n".join(tool_parts)
                         user = (
                             f"Title: {_sanitize_cli_for_prompt(title)}\n"

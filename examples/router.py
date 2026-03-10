@@ -165,6 +165,11 @@ def main() -> None:
         default=None,
         help="Observed publication year",
     )
+    parser.add_argument(
+        "--no-guardian",
+        action="store_true",
+        help="Skip human-in-the-loop authorization for HIGH findings (for CI/non-interactive).",
+    )
     args = parser.parse_args()
 
     observed = None
@@ -185,7 +190,10 @@ def main() -> None:
         }
 
     report = asyncio.run(
-        run_with_accountant(args.query, args.title, args.author, observed)
+        run_with_accountant(
+            args.query, args.title, args.author, observed,
+            guardian_enabled=not args.no_guardian,
+        )
     )
     print(report)
 

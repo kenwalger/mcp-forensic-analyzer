@@ -14,6 +14,6 @@ export interface RequestHumanSignatureInput {
 export function executeRequestHumanSignature(
   args: RequestHumanSignatureInput
 ): string {
-  const { finding_summary } = args;
-  return `PENDING_HUMAN_REVIEW: ${finding_summary}`;
+  const { finding_summary, severity } = args;
+  return `PENDING_HUMAN_REVIEW: [${severity}] ${finding_summary}`;
 }

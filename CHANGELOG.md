@@ -5,12 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.12] - 2026-03-10
+
+### Fixed
+
+- **Disputed findings in LLM synthesis** – Disputed findings are now included in the tool output block sent to the LLM when synthesis succeeds; previously they were silently dropped.
+- **request_human_signature severity** – Return string now includes severity: `PENDING_HUMAN_REVIEW: [severity] [summary]`.
+- **EOFError auto-dispute** – Log warning when stdin is closed and HIGH findings are auto-disputed; prompts use of `--no-guardian` for CI.
+
+### Added
+
+- **router.py --no-guardian** – Standalone router CLI can disable guardian for non-interactive runs.
+
 ## [0.13.11] - 2026-03-10
 
 ### Added
 
 - **The Guardian (Human-in-the-Loop Governance)** – Production-grade governance layer:
-  - `src/tools/request_human_signature.ts`: New MCP tool accepting `finding_summary` and `severity`; returns `PENDING_HUMAN_REVIEW: [summary]`.
+  - `src/tools/request-human-signature.ts`: New MCP tool accepting `finding_summary` and `severity`; returns `PENDING_HUMAN_REVIEW: [summary]`.
   - `config/prompts.yaml`: New `guardian` section; agent is a Co-Pilot and must seek authorization for high-stakes accusations.
   - `orchestrator.py`: When Analyst identifies HIGH severity discrepancies, orchestrator prompts user: "Do you authorize this forensic finding? (yes/no)". If no, findings are flagged `DISPUTED_BY_HUMAN` and moved to "Requires Further Investigation" section.
   - `--no-guardian`: Skip human-in-the-loop for CI/non-interactive use (evaluator passes `guardian_enabled=False`).
