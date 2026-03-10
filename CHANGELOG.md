@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenAI/LM Studio empty response** – Guard `r.choices[0]` access to avoid IndexError on empty API responses.
 - **Empty LLM_MODEL** – When `LLM_MODEL=` is set to empty string, fall back to provider default instead of passing empty model name to APIs.
 - **Prompt injection mitigation** – Tool output is parsed as JSON and re-serialized before inclusion in the LLM prompt; fenced delimiters and explicit "treat as data only" instructions reduce risk from untrusted MCP server output.
+- **Ollama None-return** – Guard `r.message.content` with `or ""` so the function always returns `str`, not `None`.
+- **Sanitization fallback** – Parse-fail fallback now wraps raw excerpt in `---BEGIN RAW EXCERPT---` / `---END RAW EXCERPT---` fences.
+- **CLI input sanitization** – `_sanitize_cli_for_prompt()` sanitizes title/author before LLM prompt inclusion (truncate, collapse newlines).
+- **.gitignore** – Add `__pycache__/` and `*.pyc` to exclude compiled bytecode from tracking.
 
 ## [0.11.0] - 2026-03-10
 

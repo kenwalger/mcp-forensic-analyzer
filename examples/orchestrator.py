@@ -159,7 +159,7 @@ def _make_ollama_client(model: str):
                 {"role": "user", "content": user_prompt},
             ],
         )
-        return r.message.content if r.message else ""
+        return (r.message.content or "") if r.message else ""
 
     return complete
 
@@ -260,7 +260,21 @@ def _sanitize_tool_output_for_llm(raw: str) -> str:
         parsed = json.loads(raw.strip())
         return json.dumps(parsed, indent=2)
     except (json.JSONDecodeError, TypeError):
-        return f"(parse failed; raw excerpt)\n{raw[:2000]}{'...' if len(raw) > 2000 else ''}"
+        excerpt = raw[:2000] + ("..." if len(raw) > 2000 else "")
+        return (
+            "---BEGIN RAW EXCERPT---\n"
+            f"{excerpt}\n"
+            "---END RAW EXCERPT---"
+        )
+
+
+def _sanitize_cli_for_prompt(s: str | None, max_len: int = 200) -> str:
+    """Sanitize CLI-derived strings (title, author) before LLM prompt inclusion."""
+    if s is None:
+        return "(unspecified)"
+    # Truncate and collapse newlines to prevent multiline injection
+    cleaned = " ".join(s.split())[:max_len]
+    return cleaned if cleaned else "(unspecified)"
 
 
 # -----------------------------------------------------------------------------
@@ -477,7 +491,8 @@ async def run_forensic_audit(
                         analyst_result.get("raw", "")
                     )
                     user = (
-                        f"Title: {title}\nAuthor: {author or '(unspecified)'}\n\n"
+                        f"Title: {_sanitize_cli_for_prompt(title)}\n"
+                        f"Author: {_sanitize_cli_for_prompt(author)}\n\n"
                         "---BEGIN TOOL OUTPUT---\n"
                         f"Librarian:\n{librarian_safe}\n\n"
                         f"Analyst:\n{analyst_safe}\n"
