@@ -4,7 +4,7 @@
  * Orchestrates forensic bibliographic audits by connecting
  * Notion databases with LLM reasoning capabilities.
  * @author Ken W. Alger (Abiqua Archive)
- * @version 0.1.0
+ * @version 0.13.6
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -26,13 +26,13 @@ const FORENSIC_WORKFLOW_INSTRUCTIONS = `
 2. audit_artifact_consistency
 3. get_market_signals – When reporting market findings, always include the citation link or reference provided in the Market Results to ensure evidence-based auditing.
 4. generate_exhibit_label – Once an audit is successful, offer to generate a formal Exhibit Label. If the user agrees, use the generate_exhibit_label tool and suggest saving the output back to the Notion page's 'Full Report' field.
-5. update_book_status – If an audit reveals a High or Medium severity discrepancy, immediately update the Notion status to "Flagged for Review".
+5. update_book_status – If an audit reveals a High severity discrepancy, immediately update the Notion status to "Flagged for Review".
 6. create_audit_log – After an audit is complete, automatically call create_audit_log to maintain a permanent record. You MUST pass the id from the Catalog search result into the catalog_page_id parameter of create_audit_log to maintain the relational thread.
 `;
 
 const server = new McpServer({
     name: "rare-books-intelligence-mcp",
-    version: "0.1.0",
+    version: "0.13.6",
 }, {
     capabilities: { tools: {} },
     instructions: FORENSIC_WORKFLOW_INSTRUCTIONS.trim(),

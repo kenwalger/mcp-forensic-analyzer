@@ -6,12 +6,26 @@ The **MCP Forensic Analyser** is a Model Context Protocol (MCP) server designed 
 ## 🏛️ Architecture: The "Zero-Glue" Stack
 Unlike traditional integrations, this server allows any MCP-compatible agent (Claude, Oracle 26ai, local SLMs) to dynamically discover forensic tools without custom code.
 
+The project follows an Enterprise AI Mesh pattern, decoupling intelligence (Agents) from capability (MCP Servers). It is designed to scale from a local 'Forensic Clean-Room' to an enterprise-grade governed environment using Oracle 26ai for immutable audit trails and row-level security.
 
+## ⚖️ Reliability & Observability
+We move beyond 'vibe-checking' agents by implementing an **LLM-as-a-Judge** framework.
+- **Golden Dataset:** A ground-truth set of forensic cases used to benchmark agent performance.
+- **Automated Evaluation:** Every architectural change is audited by a high-reasoning 'Judge Agent' to ensure zero regression in forensic accuracy.
+- **Structured Logging:** All provider errors and reasoning chains are captured for post-mortem analysis, moving away from silent failures.
+
+## 💰 Cognitive Budgeting (The Accountant)
+To manage enterprise scale, we implement **Semantic Routing**:
+- **Tiered Intelligence:** Requests are classified by complexity. Simple tasks are routed to local SLMs (Phi-4/Llama 3.2), while complex forensic tasks are escalated to Claude 3.5.
+- **Cost Optimization:** This approach reduces inference costs by up to 80% without sacrificing high-end reasoning where it matters.
 
 ## 🛠️ Features
 - **Discovery-First:** Implements the full MCP Lifecycle (Handshake -> Manifest -> Execution).
 - **Archival Tools:** Specialized functions for metadata cross-referencing and watermark verification.
 - **Polyglot Ready:** Built in TypeScript, designed to be orchestrated by Python-based agentic frameworks.
+
+## ⚙️ Configuration & Prompts
+Agent logic is decoupled from the execution engine. System instructions are managed in `config/prompts.yaml`, allowing for A/B testing of prompt versions and model-specific tuning without redeploying code.
 
 ## 🚀 Quick Start
 

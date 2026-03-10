@@ -56,7 +56,6 @@ def _parse_report(report: str) -> tuple[bool | None, list[dict[str, str]], bool]
     """
     consistent: bool | None = None
     discrepancies: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
     consistency_found = False
 
     # Match "Consistency: PASS" or "Consistency: FAIL"
@@ -65,15 +64,11 @@ def _parse_report(report: str) -> tuple[bool | None, list[dict[str, str]], bool]
         consistent = consistency_match.group(1).upper() == "PASS"
         consistency_found = True
 
-    # Match discrepancy lines: " - [High/Medium/Low] field_name: ..." (case-insensitive; analyst prompt uses [HIGH]/[LOW])
+    # Match discrepancy lines: " - [High/Medium/Low] field_name: ..." (no dedup; Counter handles multi-indicator)
     for m in re.finditer(
         r"-\s+\[(High|Medium|Low)\]\s+([\w_]+):", report, re.IGNORECASE
     ):
-        field, severity = m.group(2), m.group(1)
-        key = (field, severity.lower())  # canonical for dedup and precision/recall
-        if key not in seen:
-            seen.add(key)
-            discrepancies.append({"field": field, "severity": severity})
+        discrepancies.append({"field": m.group(2), "severity": m.group(1)})
 
     return consistent, discrepancies, consistency_found
 
@@ -110,7 +105,7 @@ def _reasoning_quality(report: str, case: dict) -> float:
         score += 20
     if "ANALYST FINDINGS" in report:
         score += 20
-    if "Consistency:" in report and ("PASS" in report or "FAIL" in report):
+    if re.search(r"Consistency:\s*(PASS|FAIL)", report, re.IGNORECASE):
         score += 20
     if "Confidence:" in report:
         score += 15
