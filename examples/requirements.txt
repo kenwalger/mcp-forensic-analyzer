@@ -1,2 +1,8 @@
 # MCP Python SDK for stdio client
 mcp>=1.25.0
+
+# LLM providers (install as needed)
+# Cloud: pip install anthropic  # for --provider anthropic
+#        pip install openai     # for --provider openai
+# Local: pip install ollama     # for --provider ollama
+#        pip install openai     # for --provider lm_studio (OpenAI-compatible API)

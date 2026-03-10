@@ -20,3 +20,29 @@ Unlike traditional integrations, this server allows any MCP-compatible agent (Cl
 npm install
 npm run build
 ```
+
+## 🏠 Edge AI: Running Locally with SLMs
+This branch demonstrates the "Forensic Clean-Room" setup, moving inference from the cloud to your local machine.
+
+### Prerequisites
+1. **Ollama:** [Download and install Ollama](https://ollama.com/).
+2. **Model:** Pull the default model (or another of your choice):
+   ```bash
+   ollama pull llama3.2
+   ```
+   The orchestrator defaults to `llama3.2`; for other models (e.g. phi4), set `LLM_MODEL` (see below).
+
+### Running the Local Orchestrator
+To run the multi-agent team using the local SLM:
+
+```bash
+python examples/orchestrator.py --provider ollama
+```
+
+To use a different model or Ollama host, set the environment variables:
+```bash
+LLM_MODEL=phi4 python examples/orchestrator.py --provider ollama
+OLLAMA_HOST=http://192.168.1.10:11434 python examples/orchestrator.py --provider ollama
+```
+
+> Note: SLMs require explicit instruction tuning. The orchestrator includes an optimized system prompt to help small models handle MCP JSON schemas effectively.

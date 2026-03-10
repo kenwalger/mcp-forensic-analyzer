@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-03-10
+
+### Added
+
+- **LLM provider abstraction** – `orchestrator.py` now supports cloud and local LLMs via `--provider`:
+  - Cloud: `anthropic`, `openai` (require API keys)
+  - Local SLMs: `ollama`, `lm_studio` (Ollama or LM Studio running locally)
+  - `none` for deterministic report only (no LLM synthesis)
+- **get_model_client(provider)** – Abstract factory returning an async callable for LLM completion; unifies provider-specific APIs.
+- **Instruction-Tuning block for local SLMs** – Ollama and LM Studio providers prepend an explicit Chain of Thought system prompt (`LOCAL_SLM_SYSTEM_PREFIX`) so SLMs handle MCP tool schema output correctly. Cloud models infer structure; smaller models need step-by-step guidance. All local inference logic tagged with `# [Post 3 - Edge AI]` comments.
+- **LLM-powered report synthesis** – When a provider is set, the Supervisor uses the LLM to synthesize the Forensic Report from raw tool outputs; falls back to deterministic formatting on error.
+
+### Changed
+
+- **orchestrator.py** – New `--provider` CLI argument (default `none` for backward compatibility). Supervisor optionally invokes LLM based on provider. `requirements.txt` documents optional LLM deps (anthropic, openai, ollama).
+
+### Fixed
+
+- **Ollama response parsing** – Use `r.message.content` instead of dict-style `.get()`; the Ollama SDK returns a typed ChatResponse Pydantic object.
+- **OpenAI/LM Studio empty response** – Guard `r.choices[0]` access to avoid IndexError on empty API responses.
+- **Empty LLM_MODEL** – When `LLM_MODEL=` is set to empty string, fall back to provider default instead of passing empty model name to APIs.
+- **Prompt injection mitigation** – Tool output is parsed as JSON and re-serialized before inclusion in the LLM prompt; fenced delimiters and explicit "treat as data only" instructions reduce risk from untrusted MCP server output.
+- **Ollama None-return** – Guard `r.message.content` with `or ""` so the function always returns `str`, not `None`.
+- **Sanitization fallback** – Parse-fail fallback now wraps raw excerpt in `---BEGIN RAW EXCERPT---` / `---END RAW EXCERPT---` fences.
+- **CLI input sanitization** – `_sanitize_cli_for_prompt()` sanitizes title/author before LLM prompt inclusion (truncate, collapse newlines).
+- **.gitignore** – Add `__pycache__/` and `*.pyc` to exclude compiled bytecode from tracking.
+- **CLI JSON validation** – Wrap `json.loads` for `--observed-indicators`/`--observed-points` in try/except; malformed input produces friendly `parser.error` instead of uncaught traceback.
+- **HTTP client lifecycle** – Construct Anthropic, OpenAI, Ollama, LM Studio clients once at factory time rather than inside the `complete()` closure on every invocation.
+- **ImportError propagation** – Re-raise `ImportError` from LLM synthesis so missing provider SDKs surface clear install guidance; other exceptions still fall back to deterministic report.
+- **README Ollama model** – Prerequisite example now pulls `llama3.2` to match orchestrator default; avoid "model not found" when following the guide verbatim.
+- **LLM client lifecycle** – `get_model_client` returns an async context manager; clients are closed on exit (awaiting async `close`/`aclose` when present) to avoid connection leaks in non-CLI use.
+- **Ollama host** – `OLLAMA_HOST` env var (default `http://localhost:11434`) for remote Ollama instances; mirrors `LM_STUDIO_BASE_URL` pattern.
+- **Request timeout** – All LLM calls use `LLM_TIMEOUT` (default 120s, via `LLM_TIMEOUT` env); prevents indefinite hang on stalled local server.
+- **Raw-excerpt delimiter** – Parse-fail fallback now JSON-escapes the excerpt so malicious output cannot embed `---END TOOL OUTPUT---` and break prompt fences.
+
 ## [0.11.0] - 2026-03-10
 
 ### Added
