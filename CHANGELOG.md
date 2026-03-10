@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sanitization fallback** – Parse-fail fallback now wraps raw excerpt in `---BEGIN RAW EXCERPT---` / `---END RAW EXCERPT---` fences.
 - **CLI input sanitization** – `_sanitize_cli_for_prompt()` sanitizes title/author before LLM prompt inclusion (truncate, collapse newlines).
 - **.gitignore** – Add `__pycache__/` and `*.pyc` to exclude compiled bytecode from tracking.
+- **CLI JSON validation** – Wrap `json.loads` for `--observed-indicators`/`--observed-points` in try/except; malformed input produces friendly `parser.error` instead of uncaught traceback.
+- **HTTP client lifecycle** – Construct Anthropic, OpenAI, Ollama, LM Studio clients once at factory time rather than inside the `complete()` closure on every invocation.
 
 ## [0.11.0] - 2026-03-10
 

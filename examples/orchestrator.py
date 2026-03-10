@@ -106,8 +106,9 @@ def _make_anthropic_client(model: str):
     except ImportError:
         raise ImportError("anthropic provider requires: pip install anthropic")
 
+    client = anthropic.AsyncAnthropic()
+
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        client = anthropic.AsyncAnthropic()
         msg = await client.messages.create(
             model=model,
             max_tokens=4096,
@@ -125,8 +126,9 @@ def _make_openai_client(model: str):
     except ImportError:
         raise ImportError("openai provider requires: pip install openai")
 
+    client = AsyncOpenAI()
+
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        client = AsyncOpenAI()
         r = await client.chat.completions.create(
             model=model,
             messages=[
@@ -148,8 +150,9 @@ def _make_ollama_client(model: str):
     except ImportError:
         raise ImportError("ollama provider requires: pip install ollama")
 
+    client = AsyncClient()
+
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        client = AsyncClient()
         # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
         full_system = LOCAL_SLM_SYSTEM_PREFIX.strip() + "\n\n" + system_prompt
         r = await client.chat(
@@ -174,9 +177,9 @@ def _make_lm_studio_client(model: str):
         raise ImportError("lm_studio provider requires: pip install openai")
 
     base_url = os.environ.get("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
+    client = AsyncOpenAI(base_url=base_url, api_key="lm-studio")
 
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        client = AsyncOpenAI(base_url=base_url, api_key="lm-studio")
         # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
         full_system = LOCAL_SLM_SYSTEM_PREFIX.strip() + "\n\n" + system_prompt
         r = await client.chat.completions.create(
@@ -549,13 +552,26 @@ def main() -> None:
 
     observed = None
     if args.observed_indicators or args.observed_points or args.observed_year is not None:
+        try:
+            indicators = (
+                json.loads(args.observed_indicators)
+                if args.observed_indicators
+                else []
+            )
+            points = (
+                json.loads(args.observed_points)
+                if args.observed_points
+                else []
+            )
+            if not isinstance(indicators, list) or not isinstance(points, list):
+                raise ValueError("must be JSON arrays")
+        except json.JSONDecodeError as e:
+            parser.error(f"--observed-indicators/--observed-points: invalid JSON ({e})")
+        except (ValueError, TypeError) as e:
+            parser.error(f"--observed-indicators/--observed-points: {e}")
         observed = {
-            "first_edition_indicators_observed": (
-                json.loads(args.observed_indicators) if args.observed_indicators else []
-            ),
-            "points_of_issue_observed": (
-                json.loads(args.observed_points) if args.observed_points else []
-            ),
+            "first_edition_indicators_observed": indicators,
+            "points_of_issue_observed": points,
             "observed_year": args.observed_year,
         }
 
