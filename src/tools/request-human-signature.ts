@@ -15,5 +15,8 @@ export function executeRequestHumanSignature(
   args: RequestHumanSignatureInput
 ): string {
   const { finding_summary, severity } = args;
+  if (!finding_summary?.trim() || !severity?.trim()) {
+    throw new Error("finding_summary and severity must be non-empty");
+  }
   return `PENDING_HUMAN_REVIEW: [${severity}] ${finding_summary}`;
 }

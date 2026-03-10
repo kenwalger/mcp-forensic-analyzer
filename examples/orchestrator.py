@@ -462,9 +462,18 @@ async def _apply_guardian_handshake(
                 )
                 stdin_closed = True
                 answer = "no"
-        if answer not in ("yes", "y"):
-            if not answer or answer not in ("no", "n"):
-                print("  Guardian: Unrecognized response; treating as 'no' (disputed).")
+        if answer in ("yes", "y"):
+            pass  # authorized
+        elif answer in ("no", "n"):
+            disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
+            disputed_keys.add((
+                d.get("field", ""),
+                d.get("expected", ""),
+                d.get("observed", ""),
+                (d.get("severity") or "").upper(),
+            ))
+        else:
+            print("  Guardian: Unrecognized response; treating as 'no' (disputed).")
             disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
             disputed_keys.add((
                 d.get("field", ""),
@@ -675,6 +684,10 @@ async def run_forensic_audit(
                     async with get_model_client(provider) as complete:
                         prompts = _get_prompts()
                         system = prompts["supervisor_system"]
+                        if guardian_enabled:
+                            guardian_prefix = (prompts.get("guardian") or {}).get("system_prefix") or ""
+                            if guardian_prefix.strip():
+                                system = guardian_prefix.strip() + "\n\n" + system
                         librarian_safe = _sanitize_tool_output_for_llm(
                             librarian_result.get("raw", "")
                         )

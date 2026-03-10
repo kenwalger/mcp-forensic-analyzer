@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Guardian system prompt never applied** – Inject guardian.system_prefix into LLM synthesis when guardian_enabled; governance framing was previously loaded but not used.
+- **request_human_signature empty inputs** – Validate finding_summary and severity are non-empty; reject blank invocations with clear error.
+- **Guardian response branching** – Replace double-negative with explicit three-branch (yes/y → authorize; no/n → dispute; other → warn and dispute) for maintainability.
 - **Guardian null discrepancies crash** – Use `data.get("discrepancies") or []` to guard against `{"discrepancies": null}` from the analyst; prevents TypeError in list comprehensions.
 - **Guardian unrecognized input** – Warn when user enters empty or unrecognized response before treating as disputed; avoids silent dispute on accidental Enter.
 - **request_human_signature try/catch** – Add error handling to tool handler in src/index.ts for consistency with update_book_status and create_audit_log.
