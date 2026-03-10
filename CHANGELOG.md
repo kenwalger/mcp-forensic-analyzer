@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.7] - 2026-03-10
+
+### Added
+
+- **The Accountant (Cognitive Budgeting)** – Semantic router that classifies user queries by complexity and routes to the appropriate backend:
+  - `config/prompts.yaml`: New `accountant` section with `system_prefix` and `routing_logic` (LEVEL_1: simple retrieval/formatting vs LEVEL_2: complex forensic reasoning).
+  - `examples/router.py`: Standalone script using a light model (Ollama, default llama3.2) to classify queries; LEVEL_1 routes to local SLM (ollama), LEVEL_2 to high-reasoning cloud (anthropic). Prints cost decision before running the audit.
+  - `orchestrator.py`: `--use-accountant` and `--query` flags to route via The Accountant from the orchestrator CLI. Provider override chosen by the router.
+  - Env: `ACCOUNTANT_MODEL`, `ACCOUNTANT_LEVEL_1_PROVIDER`, `ACCOUNTANT_LEVEL_2_PROVIDER`.
+  - README: Running with The Accountant section.
+
 ## [0.13.6] - 2026-03-10
 
 ### Changed

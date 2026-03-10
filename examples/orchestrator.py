@@ -76,6 +76,7 @@ def _load_prompts() -> dict[str, Any]:
     result: dict[str, Any] = {
         "local_slm_system_prefix": (data.get("local_slm_system_prefix") or "").strip(),
         "supervisor_system": (data.get("supervisor_system") or "").strip(),
+        "accountant": data.get("accountant") or {},
     }
     if PROMPTS_THE_JUDGE_PATH.exists():
         with open(PROMPTS_THE_JUDGE_PATH, encoding="utf-8") as f:
@@ -608,6 +609,16 @@ def main() -> None:
              "Use 'none' for deterministic report only.",
     )
     parser.add_argument(
+        "--use-accountant",
+        action="store_true",
+        help="Route via The Accountant (semantic router) to choose provider from query complexity.",
+    )
+    parser.add_argument(
+        "--query",
+        default=None,
+        help="User query for Accountant classification (required with --use-accountant).",
+    )
+    parser.add_argument(
         "--title",
         default="The Hobbit",
         help="Book title to look up and audit",
@@ -661,12 +672,20 @@ def main() -> None:
             "observed_year": args.observed_year,
         }
 
-    report = asyncio.run(
-        run_forensic_audit(
-            args.title, args.author, observed,
-            provider=args.provider if args.provider != "none" else None,
+    if args.use_accountant:
+        if not args.query:
+            parser.error("--query is required when using --use-accountant")
+        from router import run_with_accountant
+        report = asyncio.run(
+            run_with_accountant(args.query, args.title, args.author, observed)
         )
-    )
+    else:
+        report = asyncio.run(
+            run_forensic_audit(
+                args.title, args.author, observed,
+                provider=args.provider if args.provider != "none" else None,
+            )
+        )
     print(report)
 
 
