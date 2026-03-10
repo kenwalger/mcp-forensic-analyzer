@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Guardian null discrepancies crash** – Use `data.get("discrepancies") or []` to guard against `{"discrepancies": null}` from the analyst; prevents TypeError in list comprehensions.
+- **Guardian unrecognized input** – Warn when user enters empty or unrecognized response before treating as disputed; avoids silent dispute on accidental Enter.
 - **request_human_signature try/catch** – Add error handling to tool handler in src/index.ts for consistency with update_book_status and create_audit_log.
 - **Guardian "y" acceptance** – Authorization prompt now accepts both "yes" and "y" for approval; previously only "yes" was accepted, causing accidental disputes when users typed the common short-form.
 - **update_book_status logic gap** – Step 6 in FORENSIC_WORKFLOW_INSTRUCTIONS now conditions update_book_status on human authorization (step 3 approval); do not flag disputed findings in Notion. Prevents agents from flagging books when the human explicitly rejected the HIGH finding.

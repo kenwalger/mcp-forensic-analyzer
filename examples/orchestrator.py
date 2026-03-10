@@ -434,7 +434,7 @@ async def _apply_guardian_handshake(
     """
     disputed: list[dict] = []
     data = analyst_result.get("data") or {}
-    disc = data.get("discrepancies", [])
+    disc = data.get("discrepancies") or []  # guard against {"discrepancies": null}
     high_disc = [d for d in disc if (d.get("severity") or "").upper() == "HIGH"]
     if not high_disc:
         return analyst_result, disputed
@@ -463,6 +463,8 @@ async def _apply_guardian_handshake(
                 stdin_closed = True
                 answer = "no"
         if answer not in ("yes", "y"):
+            if not answer or answer not in ("no", "n"):
+                print("  Guardian: Unrecognized response; treating as 'no' (disputed).")
             disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
             disputed_keys.add((
                 d.get("field", ""),
