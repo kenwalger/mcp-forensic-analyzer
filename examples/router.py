@@ -100,6 +100,7 @@ async def run_with_accountant(
     book_standard: dict | None = None,
     *,
     emit_decision: bool = True,
+    guardian_enabled: bool = True,
 ) -> str:
     """
     Classify the query, optionally log the cost decision, and run the forensic audit
@@ -121,6 +122,7 @@ async def run_with_accountant(
         title, author, observed,
         provider=provider,
         book_standard=book_standard,
+        guardian_enabled=guardian_enabled,
     )
 
 

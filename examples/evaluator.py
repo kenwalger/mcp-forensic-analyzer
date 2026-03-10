@@ -196,6 +196,7 @@ async def run_evaluation(provider: str = "none", verbose: bool = False) -> dict:
             case.get("observed"),
             provider=provider or None,
             book_standard=case.get("book_standard"),
+            guardian_enabled=False,
         )
         grade = _grade_report(report, case)
         if verbose:

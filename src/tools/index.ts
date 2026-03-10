@@ -28,3 +28,7 @@ export {
   executeCreateAuditLog,
   type CreateAuditLogInput,
 } from "./create-audit-log.js";
+export {
+  executeRequestHumanSignature,
+  type RequestHumanSignatureInput,
+} from "./request-human-signature.js";
