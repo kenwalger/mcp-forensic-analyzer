@@ -131,7 +131,7 @@ def _make_openai_client(model: str):
                 {"role": "user", "content": user_prompt},
             ],
         )
-        return r.choices[0].message.content or ""
+        return (r.choices[0].message.content or "") if r.choices else ""
 
     return complete
 
@@ -156,7 +156,7 @@ def _make_ollama_client(model: str):
                 {"role": "user", "content": user_prompt},
             ],
         )
-        return r.get("message", {}).get("content", "")
+        return r.message.content if r.message else ""
 
     return complete
 
@@ -183,7 +183,7 @@ def _make_lm_studio_client(model: str):
                 {"role": "user", "content": user_prompt},
             ],
         )
-        return r.choices[0].message.content or ""
+        return (r.choices[0].message.content or "") if r.choices else ""
 
     return complete
 
@@ -467,7 +467,7 @@ def main() -> None:
     parser.add_argument(
         "--provider",
         choices=["anthropic", "openai", "ollama", "lm_studio", "none"],
-        default="anthropic",
+        default="none",
         help="LLM provider: cloud (anthropic, openai) or local SLM (ollama, lm_studio). "
              "Use 'none' for deterministic report only.",
     )

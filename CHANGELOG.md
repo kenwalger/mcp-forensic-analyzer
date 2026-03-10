@@ -19,7 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **orchestrator.py** – New `--provider` CLI argument (default `anthropic`). Supervisor optionally invokes LLM based on provider. `requirements.txt` documents optional LLM deps (anthropic, openai, ollama).
+- **orchestrator.py** – New `--provider` CLI argument (default `none` for backward compatibility). Supervisor optionally invokes LLM based on provider. `requirements.txt` documents optional LLM deps (anthropic, openai, ollama).
+
+### Fixed
+
+- **Ollama response parsing** – Use `r.message.content` instead of dict-style `.get()`; the Ollama SDK returns a typed ChatResponse Pydantic object.
+- **OpenAI/LM Studio empty response** – Guard `r.choices[0]` access to avoid IndexError on empty API responses.
 
 ## [0.11.0] - 2026-03-10
 

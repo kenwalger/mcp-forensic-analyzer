@@ -26,15 +26,21 @@ This branch demonstrates the "Forensic Clean-Room" setup, moving inference from 
 
 ### Prerequisites
 1. **Ollama:** [Download and install Ollama](https://ollama.com/).
-2. **Model:** Pull the Phi-4 or Llama 3 model:
+2. **Model:** Pull a model (e.g. Phi-4 or Llama 3):
    ```bash
    ollama pull phi4
    ```
-Running the Local Orchestrator
+
+### Running the Local Orchestrator
 To run the multi-agent team using the local SLM:
 
 ```bash
-python examples/orchestrator.py --provider ollama --model phi4
+python examples/orchestrator.py --provider ollama
 ```
 
-> Note: SLMs require explicit instruction tuning. The orchestrator in this branch includes an optimized system prompt to help small models handle MCP JSON schemas effectively.
+To select a specific model, set the `LLM_MODEL` environment variable (default: `llama3.2`):
+```bash
+LLM_MODEL=phi4 python examples/orchestrator.py --provider ollama
+```
+
+> Note: SLMs require explicit instruction tuning. The orchestrator includes an optimized system prompt to help small models handle MCP JSON schemas effectively.
