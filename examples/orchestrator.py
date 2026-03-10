@@ -25,10 +25,12 @@ Prerequisites:
 
 import argparse
 import asyncio
+import functools
 import json
 import logging
 import os
 import pathlib
+import re
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 
@@ -84,11 +86,18 @@ def _load_prompts() -> dict[str, Any]:
     return result
 
 
+@functools.lru_cache(maxsize=1)
 def _get_prompts() -> dict[str, Any]:
-    """Cached prompts loader."""
-    if not hasattr(_get_prompts, "_cache"):
-        _get_prompts._cache = _load_prompts()
-    return _get_prompts._cache
+    """Cached prompts loader. Use _get_prompts.cache_clear() in tests to invalidate."""
+    return _load_prompts()
+
+
+def _substitute_prompt_template(template: str, **kwargs: str) -> str:
+    """Replace {{key}} placeholders with values. Use when consuming the_judge prompts."""
+    result = template
+    for key, value in kwargs.items():
+        result = re.sub(rf"\{{{{{key}\}}}}", str(value), result)
+    return result
 
 
 class _LLMClientContext:

@@ -34,3 +34,9 @@ judge:
     - Reasoning (20 pts): Is the explanation for the findings logical and evidence-based?
     
     Output your final report in JSON format with 'score', 'reasoning', and 'improvements'.
+  # Weights used by evaluator heuristic grading (must sum to 100)
+  rubric_weights:
+    consistency: 20
+    precision: 30
+    recall: 30
+    reasoning_quality: 20

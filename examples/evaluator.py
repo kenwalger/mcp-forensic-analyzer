@@ -19,21 +19,50 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from orchestrator import run_forensic_audit
+from orchestrator import _get_prompts, run_forensic_audit
 
 GOLDEN_DATASET_PATH = PROJECT_ROOT / "tests" / "golden_dataset.json"
 
+_logger = logging.getLogger(__name__)
 
-def _parse_report(report: str) -> tuple[bool, list[dict[str, str]]]:
-    """Extract consistency (PASS/FAIL) and discrepancies from report text."""
-    consistent = True
+# Default weights if the_judge not loaded (must sum to 100)
+_DEFAULT_RUBRIC_WEIGHTS = {
+    "consistency": 20,
+    "precision": 30,
+    "recall": 30,
+    "reasoning_quality": 20,
+}
+
+
+def _get_rubric_weights() -> dict[str, int]:
+    """Load rubric weights from the_judge config; fallback to defaults."""
+    try:
+        prompts = _get_prompts()
+        judge = prompts.get("the_judge", {}).get("judge", {})
+        w = judge.get("rubric_weights")
+        if w and isinstance(w, dict) and sum(w.values()) == 100:
+            return {k: int(v) for k, v in w.items()}
+    except Exception:
+        pass
+    return _DEFAULT_RUBRIC_WEIGHTS.copy()
+
+
+def _parse_report(report: str) -> tuple[bool | None, list[dict[str, str]], bool]:
+    """
+    Extract consistency (PASS/FAIL) and discrepancies from report text.
+    Returns (consistent, discrepancies, consistency_found).
+    When consistency_found is False, consistent is None (format not recognized).
+    """
+    consistent: bool | None = None
     discrepancies: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
+    consistency_found = False
 
     # Match "Consistency: PASS" or "Consistency: FAIL"
     consistency_match = re.search(r"Consistency:\s*(PASS|FAIL)", report, re.IGNORECASE)
     if consistency_match:
         consistent = consistency_match.group(1).upper() == "PASS"
+        consistency_found = True
 
     # Match discrepancy lines: "    - [High] field_name: ..." or "- [Low] expected_first_edition_year: ..."
     for m in re.finditer(r"-\s+\[(High|Low)\]\s+([\w_]+):", report):
@@ -42,7 +71,7 @@ def _parse_report(report: str) -> tuple[bool, list[dict[str, str]]]:
             seen.add(key)
             discrepancies.append({"field": m.group(2), "severity": m.group(1)})
 
-    return consistent, discrepancies
+    return consistent, discrepancies, consistency_found
 
 
 def _compute_precision_recall(
@@ -91,14 +120,29 @@ def _reasoning_quality(report: str, case: dict) -> float:
 
 
 def _grade_report(report: str, case: dict) -> dict:
-    """Judge Agent: grade output on Precision, Recall, Reasoning Quality."""
+    """
+    Judge Agent: grade output on Precision, Recall, Reasoning Quality.
+    Uses rubric_weights from config/prompts_the_judge.yaml when available.
+    When report format is unrecognized (no Consistency: line), applies
+    conservative consistency score (0) and logs a warning.
+    """
     expected_consistency = case.get("expected_consistency", True)
     expected_disc = case.get("expected_discrepancies", [])
+    weights = _get_rubric_weights()
 
-    consistent, actual_disc = _parse_report(report)
+    consistent, actual_disc, consistency_found = _parse_report(report)
 
     # Consistency correctness
-    consistency_correct = consistent == expected_consistency
+    if not consistency_found:
+        _logger.warning(
+            "Report format not recognized: no 'Consistency: PASS|FAIL' line found; "
+            "applying conservative consistency score (0)"
+        )
+        consistency_score = 0
+        consistency_correct = None  # unknown
+    else:
+        consistency_correct = consistent == expected_consistency
+        consistency_score = 100 if consistency_correct else 0
 
     # Precision & Recall on discrepancies
     precision, recall = _compute_precision_recall(expected_disc, actual_disc)
@@ -106,22 +150,27 @@ def _grade_report(report: str, case: dict) -> dict:
     # Reasoning quality
     rq = _reasoning_quality(report, case)
 
-    # Weighted overall: Consistency (20), Precision (30), Recall (30), RQ (20)
-    consistency_score = 100 if consistency_correct else 0
+    # Weighted overall from rubric_weights
+    w_cons = weights.get("consistency", 20) / 100.0
+    w_prec = weights.get("precision", 30) / 100.0
+    w_rec = weights.get("recall", 30) / 100.0
+    w_rq = weights.get("reasoning_quality", 20) / 100.0
     overall = (
-        consistency_score * 0.2
-        + precision * 100 * 0.3
-        + recall * 100 * 0.3
-        + rq * 0.2
+        consistency_score * w_cons
+        + precision * 100 * w_prec
+        + recall * 100 * w_rec
+        + rq * w_rq
     )
 
-    return {
+    out: dict = {
         "precision": round(precision * 100, 1),
         "recall": round(recall * 100, 1),
         "reasoning_quality": round(rq, 1),
         "consistency_correct": consistency_correct,
+        "format_recognized": consistency_found,
         "overall": round(overall, 1),
     }
+    return out
 
 
 async def run_evaluation(provider: str = "none", verbose: bool = False) -> dict:

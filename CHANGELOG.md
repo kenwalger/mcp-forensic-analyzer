@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Prompt externalization** – `config/prompts.yaml` holds `local_slm_system_prefix` and `supervisor_system`; orchestrator loads them dynamically via `_load_prompts()` / `_get_prompts()`. Adds `pyyaml>=6.0` to requirements.
+- **Prompt externalization** – `config/prompts.yaml` holds `local_slm_system_prefix` and `supervisor_system`; `config/prompts_the_judge.yaml` holds librarian, analyst, and judge agent prompts (Series 2 – The Judge). Both ingested via `_load_prompts()` / `_get_prompts()`. Adds `pyyaml>=6.0` to requirements.
 - **Judge Framework** – `tests/golden_dataset.json` with 5 forensic cases (2 clean, 3 with year/points-of-issue/binding discrepancies). `examples/evaluator.py` runs orchestrator against the dataset and grades output on Precision, Recall, Reasoning Quality (0–100 rubric). Exits 0 if average ≥ 70.
 - **Structured logging** – LLM synthesis failures call `logger.exception()` with provider and error details; deterministic fallback still returned. Basic logging config in orchestrator `main()`.
 
@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **orchestrator.py** – Prompts moved to config; logging for synthesis errors; evaluator usage in `usage.md`.
 - **audit_artifact_consistency** – Input schema for `observed` extended with `binding_type_observed` and `paper_watermark_observed` for golden dataset binding case.
 - **audit-artifact-consistency.ts** – Phase 5 Tokenization (ROADMAP) comment added; ready for stricter tokenization per roadmap.
+
+### Fixed
+
+- **evaluator _reasoning_quality** – Replace `len(re.finditer(...))` with `re.search(...) is None`; `re.finditer` returns a non-Sized iterator, causing TypeError for clean-case grading.
+- **orchestrator logger.exception** – Remove redundant `exc_info=True`; `logger.exception()` already captures current exception info.
+- **orchestrator PEP 8 E302** – Add second blank line before `_load_prompts()` top-level function.
 
 ## [0.12.0] - 2026-03-10
 
