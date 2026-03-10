@@ -30,6 +30,7 @@ import json
 import logging
 import os
 import pathlib
+import sys
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 
@@ -37,6 +38,11 @@ import yaml
 
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
+
+# Ensure examples/ is on sys.path for router import (robust when imported as module)
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +52,6 @@ LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "120"))
 # -----------------------------------------------------------------------------
 # Paths: script lives in examples/, server in parent
 # -----------------------------------------------------------------------------
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 PROMPTS_PATH = CONFIG_DIR / "prompts.yaml"
@@ -127,7 +132,12 @@ class _LLMClientContext:
                 await result
 
 
-def get_model_client(provider: str, *, raw_system: bool = False) -> _LLMClientContext:
+def get_model_client(
+    provider: str,
+    *,
+    raw_system: bool = False,
+    model_override: str | None = None,
+) -> _LLMClientContext:
     """
     Abstract LLM client factory. Returns an async context manager that yields
     complete(system_prompt, user_prompt) -> str and closes the client on exit.
@@ -137,11 +147,16 @@ def get_model_client(provider: str, *, raw_system: bool = False) -> _LLMClientCo
     When raw_system=True, Ollama/LM Studio clients skip the local_slm_system_prefix
     (used by The Accountant for classification; the forensic CoT prefix would
     conflict with the strict LEVEL_1/LEVEL_2 classifier persona).
+
+    When model_override is set, use it instead of LLM_MODEL env / DEFAULT_MODELS
+    (avoids env mutation for concurrent or library usage).
     """
-    # Guard empty LLM_MODEL: env var set to "" yields empty model name → API errors
-    model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODELS.get(
-        provider, ""
-    )
+    if model_override is not None and model_override.strip():
+        model = model_override.strip()
+    else:
+        model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODELS.get(
+            provider, ""
+        )
 
     if provider == "anthropic":
         return _make_anthropic_client(model)

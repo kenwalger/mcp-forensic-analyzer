@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.10] - 2026-03-10
+
+### Added
+
+- **ACCOUNTANT_CLASSIFICATION_PROVIDER** – Env var for classification backend (default: ollama); use `lm_studio` when only LM Studio is available. Previously hardcoded to ollama.
+- **run_with_accountant emit_decision** – Optional `emit_decision=False` to suppress routing log when used as a library; defaults True for CLI.
+
+### Changed
+
+- **classify_query** – Uses `ACCOUNTANT_CLASSIFICATION_PROVIDER`; removed `os.environ` mutation; passes `model_override` to `get_model_client` for concurrency-safe model selection.
+- **get_model_client** – New `model_override` parameter bypasses env/DEFAULT_MODELS; avoids global side effects.
+- **run_with_accountant** – Routing decisions logged via `logging` instead of `print()`; respects `emit_decision` for programmatic use.
+- **orchestrator** – Ensures `examples/` is on `sys.path` before router import for robust module usage.
+
 ## [0.13.9] - 2026-03-10
 
 ### Fixed

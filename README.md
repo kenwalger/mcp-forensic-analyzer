@@ -76,4 +76,4 @@ python examples/router.py --query "Look up The Hobbit" --title "The Hobbit" --au
 python examples/orchestrator.py --use-accountant --query "Compare points of issue and binding across editions" --title "The Great Gatsby"
 ```
 
-Configure routing via `ACCOUNTANT_MODEL` (classification), `ACCOUNTANT_LEVEL_1_PROVIDER` (default: ollama), `ACCOUNTANT_LEVEL_2_PROVIDER` (default: anthropic).
+Configure routing via `ACCOUNTANT_MODEL` (classification model), `ACCOUNTANT_CLASSIFICATION_PROVIDER` (default: ollama; use `lm_studio` if only LM Studio available), `ACCOUNTANT_LEVEL_1_PROVIDER`, `ACCOUNTANT_LEVEL_2_PROVIDER`.

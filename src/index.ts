@@ -4,7 +4,7 @@
  * Orchestrates forensic bibliographic audits by connecting
  * Notion databases with LLM reasoning capabilities.
  * @author Ken W. Alger (Abiqua Archive)
- * @version 0.13.9
+ * @version 0.13.10
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -32,7 +32,7 @@ const FORENSIC_WORKFLOW_INSTRUCTIONS = `
 
 const server = new McpServer({
     name: "rare-books-intelligence-mcp",
-    version: "0.13.9",
+    version: "0.13.10",
 }, {
     capabilities: { tools: {} },
     instructions: FORENSIC_WORKFLOW_INSTRUCTIONS.trim(),

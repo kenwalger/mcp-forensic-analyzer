@@ -2,7 +2,7 @@
 """
 The Accountant — Cognitive Budgeting (Semantic Router)
 
-Classifies user queries by complexity using a light local model (Ollama),
+Classifies user queries by complexity using a light local model,
 then routes to the appropriate backend:
   - LEVEL_1 (simple): Local/cheap model (ollama)
   - LEVEL_2 (complex): High-reasoning cloud model (anthropic or openai)
@@ -12,14 +12,16 @@ Usage:
     python router.py --query "Compare points of issue and binding across editions" --title "The Great Gatsby"
 
 Environment:
-    ACCOUNTANT_MODEL      Light model for classification (default: llama3.2)
-    ACCOUNTANT_LEVEL_1_PROVIDER   Provider for LEVEL_1 (default: ollama)
-    ACCOUNTANT_LEVEL_2_PROVIDER   Provider for LEVEL_2 (default: anthropic)
+    ACCOUNTANT_MODEL              Light model for classification (default: llama3.2)
+    ACCOUNTANT_CLASSIFICATION_PROVIDER   Provider for classification (default: ollama; use lm_studio if only LM Studio available)
+    ACCOUNTANT_LEVEL_1_PROVIDER   Provider for LEVEL_1 audit (default: ollama)
+    ACCOUNTANT_LEVEL_2_PROVIDER   Provider for LEVEL_2 audit (default: anthropic)
 """
 
 import argparse
 import asyncio
 import json
+import logging
 import os
 import re
 import sys
@@ -30,7 +32,12 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from orchestrator import _get_prompts, get_model_client, run_forensic_audit
 
+_logger = logging.getLogger(__name__)
+
 ACCOUNTANT_MODEL = os.environ.get("ACCOUNTANT_MODEL", "llama3.2")
+ACCOUNTANT_CLASSIFICATION_PROVIDER = os.environ.get(
+    "ACCOUNTANT_CLASSIFICATION_PROVIDER", "ollama"
+)
 ACCOUNTANT_LEVEL_1_PROVIDER = os.environ.get("ACCOUNTANT_LEVEL_1_PROVIDER", "ollama")
 ACCOUNTANT_LEVEL_2_PROVIDER = os.environ.get("ACCOUNTANT_LEVEL_2_PROVIDER", "anthropic")
 
@@ -55,24 +62,25 @@ def _build_accountant_prompt() -> str:
 
 async def classify_query(query: str) -> str:
     """
-    Use a light model (Ollama) to classify the query into LEVEL_1 or LEVEL_2.
+    Use a light model to classify the query into LEVEL_1 or LEVEL_2.
+    Provider from ACCOUNTANT_CLASSIFICATION_PROVIDER (ollama or lm_studio).
     Returns "LEVEL_1" or "LEVEL_2".
     """
     system = _build_accountant_prompt()
     user = f"Classify this request:\n\n{query}\n\nRespond with LEVEL_1 or LEVEL_2 only."
-    old_model = os.environ.get("LLM_MODEL")
-    os.environ["LLM_MODEL"] = ACCOUNTANT_MODEL
     try:
-        async with get_model_client("ollama", raw_system=True) as complete:
+        async with get_model_client(
+            ACCOUNTANT_CLASSIFICATION_PROVIDER,
+            raw_system=True,
+            model_override=ACCOUNTANT_MODEL,
+        ) as complete:
             raw = await complete(system, user)
     except Exception as e:
-        print(f"Accountant classification failed ({e}), defaulting to LEVEL_2 for safety.")
+        _logger.warning(
+            "Accountant classification failed (%s), defaulting to LEVEL_2 for safety.",
+            e,
+        )
         return "LEVEL_2"
-    finally:
-        if old_model is not None:
-            os.environ["LLM_MODEL"] = old_model
-        elif "LLM_MODEL" in os.environ:
-            del os.environ["LLM_MODEL"]
     match = re.search(r"LEVEL_1|LEVEL_2", raw.strip().upper())
     return match.group(0) if match else "LEVEL_2"
 
@@ -90,17 +98,25 @@ async def run_with_accountant(
     author: str | None = None,
     observed: dict | None = None,
     book_standard: dict | None = None,
+    *,
+    emit_decision: bool = True,
 ) -> str:
     """
-    Classify the query, print the cost decision, and run the forensic audit
-    with the appropriate provider.
+    Classify the query, optionally log the cost decision, and run the forensic audit
+    with the appropriate provider. When emit_decision=True (default), logs the routing
+    decision via logging; set False for programmatic use when stdout must stay clean.
     """
     level = await classify_query(query)
     provider = get_provider_for_level(level)
-    if level == "LEVEL_1":
-        print("Accountant Decision: LEVEL_1 - Routing to Local SLM to save budget")
-    else:
-        print("Accountant Decision: LEVEL_2 - Routing to High-Reasoning Cloud Model")
+    if emit_decision:
+        if level == "LEVEL_1":
+            _logger.info(
+                "Accountant Decision: LEVEL_1 - Routing to Local SLM to save budget"
+            )
+        else:
+            _logger.info(
+                "Accountant Decision: LEVEL_2 - Routing to High-Reasoning Cloud Model"
+            )
     return await run_forensic_audit(
         title, author, observed,
         provider=provider,
@@ -109,6 +125,10 @@ async def run_with_accountant(
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+    )
     parser = argparse.ArgumentParser(
         description="The Accountant — Semantic Router for Cognitive Budgeting"
     )
