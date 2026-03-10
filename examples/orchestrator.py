@@ -462,7 +462,7 @@ async def _apply_guardian_handshake(
                 )
                 stdin_closed = True
                 answer = "no"
-        if answer != "yes":
+        if answer not in ("yes", "y"):
             disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
             disputed_keys.add((
                 d.get("field", ""),
