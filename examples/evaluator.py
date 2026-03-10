@@ -83,7 +83,7 @@ def _reasoning_quality(report: str, case: dict) -> float:
         else:
             score += 10  # partial
     else:
-        if "Discrepancies: None" in report or ("Discrepancies:" in report and len(re.finditer(r"\[(High|Low)\]", report)) == 0):
+        if "Discrepancies: None" in report or ("Discrepancies:" in report and re.search(r"\[(High|Low)\]", report) is None):
             score += 25
         else:
             score += 10

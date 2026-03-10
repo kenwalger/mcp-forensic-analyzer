@@ -49,6 +49,7 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 PROMPTS_PATH = CONFIG_DIR / "prompts.yaml"
+PROMPTS_THE_JUDGE_PATH = CONFIG_DIR / "prompts_the_judge.yaml"
 # Server entry: dist/index.js (tsc default) or build/index.js
 _server_dir = "dist" if (PROJECT_ROOT / "dist" / "index.js").exists() else "build"
 SERVER_ENTRY = PROJECT_ROOT / _server_dir / "index.js"
@@ -61,8 +62,9 @@ DEFAULT_MODELS = {
     "lm_studio": "local-model",  # LM Studio uses the loaded model name
 }
 
-def _load_prompts() -> dict[str, str]:
-    """Load prompts from config/prompts.yaml."""
+
+def _load_prompts() -> dict[str, Any]:
+    """Load prompts from config/prompts.yaml and config/prompts_the_judge.yaml."""
     if not PROMPTS_PATH.exists():
         raise FileNotFoundError(
             f"Prompts config not found: {PROMPTS_PATH}. "
@@ -70,13 +72,19 @@ def _load_prompts() -> dict[str, str]:
         )
     with open(PROMPTS_PATH, encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    return {
+    result: dict[str, Any] = {
         "local_slm_system_prefix": (data.get("local_slm_system_prefix") or "").strip(),
         "supervisor_system": (data.get("supervisor_system") or "").strip(),
     }
+    if PROMPTS_THE_JUDGE_PATH.exists():
+        with open(PROMPTS_THE_JUDGE_PATH, encoding="utf-8") as f:
+            judge_data = yaml.safe_load(f)
+        if judge_data:
+            result["the_judge"] = judge_data
+    return result
 
 
-def _get_prompts() -> dict[str, str]:
+def _get_prompts() -> dict[str, Any]:
     """Cached prompts loader."""
     if not hasattr(_get_prompts, "_cache"):
         _get_prompts._cache = _load_prompts()
@@ -538,7 +546,6 @@ async def run_forensic_audit(
                         "LLM synthesis failed for provider=%s: %s",
                         provider,
                         e,
-                        exc_info=True,
                     )
                     return (
                         f"[LLM synthesis failed: {e}]\n\n"
