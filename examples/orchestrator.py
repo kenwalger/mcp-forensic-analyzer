@@ -547,6 +547,18 @@ async def run_forensic_audit(
                             f"Analyst:\n{analyst_safe}\n"
                             "---END TOOL OUTPUT---"
                         )
+                        # Inject substituted analyst audit_instruction for audit framing (consumes the_judge)
+                        the_judge = prompts.get("the_judge", {})
+                        audit_instr = (the_judge.get("analyst", {}) or {}).get("audit_instruction")
+                        if audit_instr and book_standard is not None and observed is not None:
+                            obs_str = json.dumps(observed) if isinstance(observed, dict) else str(observed)
+                            std_str = json.dumps(book_standard) if isinstance(book_standard, dict) else str(book_standard)
+                            framed = _substitute_prompt_template(
+                                audit_instr,
+                                observed_data=obs_str,
+                                standard_data=std_str,
+                            )
+                            user = f"Audit framing:\n{framed}\n\n{user}"
                         return await complete(system, user)
                 except ImportError:
                     raise  # Missing provider SDK; propagate with clear install guidance

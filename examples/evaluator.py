@@ -64,8 +64,8 @@ def _parse_report(report: str) -> tuple[bool | None, list[dict[str, str]], bool]
         consistent = consistency_match.group(1).upper() == "PASS"
         consistency_found = True
 
-    # Match discrepancy lines: "    - [High] field_name: ..." or "- [Low] expected_first_edition_year: ..."
-    for m in re.finditer(r"-\s+\[(High|Low)\]\s+([\w_]+):", report):
+    # Match discrepancy lines: " - [High/Medium/Low] field_name: ..." (analyst prompt assigns MEDIUM too)
+    for m in re.finditer(r"-\s+\[(High|Medium|Low)\]\s+([\w_]+):", report):
         key = (m.group(2), m.group(1))
         if key not in seen:
             seen.add(key)
@@ -112,7 +112,7 @@ def _reasoning_quality(report: str, case: dict) -> float:
         else:
             score += 10  # partial
     else:
-        if "Discrepancies: None" in report or ("Discrepancies:" in report and re.search(r"\[(High|Low)\]", report) is None):
+        if "Discrepancies: None" in report or ("Discrepancies:" in report and re.search(r"\[(High|Medium|Low)\]", report) is None):
             score += 25
         else:
             score += 10
@@ -179,28 +179,28 @@ async def run_evaluation(provider: str = "none", verbose: bool = False) -> dict:
         data = json.load(f)
     cases = data.get("cases", [])
 
-    results = []
-    for case in cases:
+    async def _run_case(case: dict) -> dict:
         case_id = case.get("id", "unknown")
-        title = case["title"]
-        author = case.get("author")
-        observed = case.get("observed")
-
         report = await run_forensic_audit(
-            title, author, observed, provider=provider or None
+            case["title"],
+            case.get("author"),
+            case.get("observed"),
+            provider=provider or None,
         )
         grade = _grade_report(report, case)
-
-        results.append({
+        if verbose:
+            print(f"\n--- {case_id} ---")
+            print(f"  Overall: {grade['overall']}/100 (P={grade['precision']}, R={grade['recall']}, RQ={grade['reasoning_quality']})")
+        return {
             "case_id": case_id,
             "description": case.get("description", ""),
             "expected_outcome": case.get("expected_outcome", ""),
             "grade": grade,
             "report_preview": report[:500] + "..." if len(report) > 500 else report,
-        })
-        if verbose:
-            print(f"\n--- {case_id} ---")
-            print(f"  Overall: {grade['overall']}/100 (P={grade['precision']}, R={grade['recall']}, RQ={grade['reasoning_quality']})")
+        }
+
+    results = await asyncio.gather(*(_run_case(c) for c in cases))
+    results = list(results)
 
     avg_overall = sum(r["grade"]["overall"] for r in results) / len(results) if results else 0
     return {

@@ -29,12 +29,13 @@ judge:
     3. The Execution Logs (How they reasoned)
   rubric: |
     Grade the team on a scale of 0-100:
-    - Precision (40 pts): Did they avoid flagging non-existent errors?
-    - Recall (40 pts): Did they find every error listed in the Ground Truth?
+    - Consistency (20 pts): Did the team correctly report PASS when artifacts match, FAIL when they mismatch?
+    - Precision (30 pts): Did they avoid flagging non-existent errors?
+    - Recall (30 pts): Did they find every error listed in the Ground Truth?
     - Reasoning (20 pts): Is the explanation for the findings logical and evidence-based?
-    
+
     Output your final report in JSON format with 'score', 'reasoning', and 'improvements'.
-  # Weights used by evaluator heuristic grading (must sum to 100)
+  # Must match rubric above; used by heuristic evaluator and for LLM/heuristic score comparability
   rubric_weights:
     consistency: 20
     precision: 30

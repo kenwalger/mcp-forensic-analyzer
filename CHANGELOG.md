@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-03-10
+
+### Added
+
+- **rubric_weights** – `config/prompts_the_judge.yaml` now defines `rubric_weights`; evaluator consumes them for heuristic grading. Fallback to defaults if the_judge not loaded.
+- **format_recognized** – Evaluator grade output includes `format_recognized`; `False` when no `Consistency: PASS|FAIL` line is found.
+
+### Changed
+
+- **prompts_the_judge rubric** – Rubric prompt text now aligns with `rubric_weights`: Consistency (20 pts), Precision (30), Recall (30), Reasoning (20). Ensures LLM-graded and heuristic scores are comparable.
+- **_get_prompts** – Switched from manual `_cache` attribute to `@functools.lru_cache(maxsize=1)`; tests can invalidate via `_get_prompts.cache_clear()`.
+- **run_evaluation** – Golden dataset cases now run in parallel via `asyncio.gather()` for faster evaluation, especially with LLM providers.
+
+### Fixed
+
+- **Medium severity in scoring** – `_parse_report` and `_reasoning_quality` now recognize `[Medium]` discrepancy tags; analyst prompt assigns MEDIUM, so reports were previously misgraded when Medium discrepancies appeared.
+- **_parse_report silent default** – When no `Consistency: PASS|FAIL` line is found, evaluator applies conservative consistency score (0) and logs a warning instead of silently defaulting to pass.
+- **_substitute_prompt_template usage** – Orchestrator now injects substituted `analyst.audit_instruction` (`{{observed_data}}`, `{{standard_data}}`) into the supervisor prompt when using an LLM provider.
+
 ## [0.13.0] - 2026-03-10
 
 ### Added
