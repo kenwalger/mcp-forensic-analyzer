@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **request_human_signature try/catch** – Add error handling to tool handler in src/index.ts for consistency with update_book_status and create_audit_log.
 - **Guardian "y" acceptance** – Authorization prompt now accepts both "yes" and "y" for approval; previously only "yes" was accepted, causing accidental disputes when users typed the common short-form.
 - **update_book_status logic gap** – Step 6 in FORENSIC_WORKFLOW_INSTRUCTIONS now conditions update_book_status on human authorization (step 3 approval); do not flag disputed findings in Notion. Prevents agents from flagging books when the human explicitly rejected the HIGH finding.
 - **Confidence recalculation ignores MEDIUM/other** – Post-dispute confidence now includes penalty for MEDIUM (20) and unknown severities (10); High=45, Low=5 unchanged. Prevents inflated scores when non-HIGH/LOW discrepancies remain.

@@ -162,8 +162,16 @@ server.registerTool(
         }
     },
     async (args: any) => {
-        const result = executeRequestHumanSignature(args);
-        return { content: [{ type: "text", text: result }] };
+        try {
+            const result = executeRequestHumanSignature(args);
+            return { content: [{ type: "text", text: result }] };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown error occurred";
+            return {
+                content: [{ type: "text", text: `Error: ${message}. Ensure finding_summary and severity are provided.` }],
+                isError: true,
+            };
+        }
     }
 );
 

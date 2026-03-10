@@ -476,7 +476,8 @@ async def _apply_guardian_handshake(
             d for d in disc
             if (d.get("field", ""), d.get("expected", ""), d.get("observed", ""), (d.get("severity") or "").upper()) not in disputed_keys
         ]
-        # Match audit-artifact-consistency.ts: High=45, Low=5; add Medium=20, other=10 for future/extended severities
+        # Recompute using audit-artifact-consistency.ts formula (High=45, Medium=20, Low=5, other=10)
+        # so post-dispute score stays aligned with analyst; intentional override when discrepancies change
         penalty = 0
         for item in new_disc:
             s = (item.get("severity") or "").upper()
