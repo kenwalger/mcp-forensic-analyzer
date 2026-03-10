@@ -6,16 +6,21 @@ Connects to the Rare Books Intelligence MCP server via stdio transport,
 orchestrating a Librarian agent (book lookup) and an Analyst agent (audit)
 to produce a combined Forensic Report.
 
+Supports cloud providers (Anthropic, OpenAI) and local SLMs (Ollama, LM Studio).
+
 Tool mapping (server exposes these; adapt if you add Youtube/audit_book):
   - Librarian: find_book_in_master_bibliography (pulls book details)
   - Analyst:   audit_artifact_consistency (checks for discrepancies)
 
 Usage:
     python orchestrator.py [--title "Book Title"] [--author "Author Name"]
+    python orchestrator.py --provider ollama --title "The Hobbit"
     
 Prerequisites:
     - npm run build  (TypeScript server outputs to dist/index.js)
     - NOTION_API_KEY and database IDs for full Notion integration
+    - For cloud: ANTHROPIC_API_KEY or OPENAI_API_KEY
+    - For local: Ollama running (ollama serve) or LM Studio server
 """
 
 import argparse
@@ -24,6 +29,7 @@ import json
 import os
 import pathlib
 from datetime import datetime
+from typing import Awaitable, Callable
 
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
@@ -36,6 +42,150 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 # Server entry: dist/index.js (tsc default) or build/index.js
 _server_dir = "dist" if (PROJECT_ROOT / "dist" / "index.js").exists() else "build"
 SERVER_ENTRY = PROJECT_ROOT / _server_dir / "index.js"
+
+# Default model names per provider (override via env: LLM_MODEL)
+DEFAULT_MODELS = {
+    "anthropic": "claude-3-5-haiku-20241022",
+    "openai": "gpt-4o-mini",
+    "ollama": "llama3.2",
+    "lm_studio": "local-model",  # LM Studio uses the loaded model name
+}
+
+# [Post 3 - Edge AI] Instruction-Tuning block for local SLMs (Ollama, LM Studio).
+# SLMs require more explicit 'Chain of Thought' instructions to handle MCP tool schemas
+# compared to larger cloud models. Cloud models can infer structure from minimal context;
+# smaller models need step-by-step guidance to parse tool outputs and produce structured
+# forensic summaries. This block instructs the model to: (1) extract key fields from
+# JSON tool results, (2) reason about consistency and discrepancies, (3) format findings
+# in the prescribed report structure. Without this, SLMs may produce unstructured or
+# incomplete responses when given raw MCP tool output.
+LOCAL_SLM_SYSTEM_PREFIX = """
+You are a forensic bibliographic analyst. You will receive raw JSON outputs from MCP tools.
+
+**Chain of Thought (follow in order):**
+1. Parse the Librarian JSON: extract found status, book_standards (title, author, publisher, year, binding).
+2. Parse the Analyst JSON: extract is_consistent, confidence_score, discrepancies (field, expected, observed, severity).
+3. For each discrepancy, state: [Severity] field - expected 'X' vs observed 'Y'.
+4. Produce a structured Forensic Report with sections: LIBRARIAN FINDINGS, ANALYST FINDINGS, and a final verdict.
+5. Use clear headings and consistent formatting.
+
+Be precise and include all relevant data. Do not omit discrepancies.
+"""
+
+
+def get_model_client(
+    provider: str,
+) -> Callable[[str, str], Awaitable[str]]:
+    """
+    Abstract LLM client factory. Returns an async callable:
+        complete(system_prompt: str, user_prompt: str) -> str
+
+    Providers: anthropic, openai, ollama, lm_studio.
+    """
+    model = os.environ.get("LLM_MODEL", DEFAULT_MODELS.get(provider, ""))
+
+    if provider == "anthropic":
+        return _make_anthropic_client(model)
+    elif provider == "openai":
+        return _make_openai_client(model)
+    # [Post 3 - Edge AI] Local inference paths: Ollama and LM Studio
+    elif provider == "ollama":
+        return _make_ollama_client(model)
+    elif provider == "lm_studio":
+        return _make_lm_studio_client(model)
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
+
+
+def _make_anthropic_client(model: str):
+    try:
+        import anthropic
+    except ImportError:
+        raise ImportError("anthropic provider requires: pip install anthropic")
+
+    async def complete(system_prompt: str, user_prompt: str) -> str:
+        client = anthropic.AsyncAnthropic()
+        msg = await client.messages.create(
+            model=model,
+            max_tokens=4096,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        return msg.content[0].text if msg.content else ""
+
+    return complete
+
+
+def _make_openai_client(model: str):
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        raise ImportError("openai provider requires: pip install openai")
+
+    async def complete(system_prompt: str, user_prompt: str) -> str:
+        client = AsyncOpenAI()
+        r = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        return r.choices[0].message.content or ""
+
+    return complete
+
+
+# [Post 3 - Edge AI] Ollama local inference. Uses the Instruction-Tuning block
+# (LOCAL_SLM_SYSTEM_PREFIX) because SLMs need explicit Chain of Thought guidance
+# when handling MCP tool schemas—unlike larger cloud models that can infer structure.
+def _make_ollama_client(model: str):
+    try:
+        from ollama import AsyncClient
+    except ImportError:
+        raise ImportError("ollama provider requires: pip install ollama")
+
+    async def complete(system_prompt: str, user_prompt: str) -> str:
+        client = AsyncClient()
+        # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
+        full_system = LOCAL_SLM_SYSTEM_PREFIX.strip() + "\n\n" + system_prompt
+        r = await client.chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": full_system},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        return r.get("message", {}).get("content", "")
+
+    return complete
+
+
+# [Post 3 - Edge AI] LM Studio local inference. OpenAI-compatible API at localhost.
+# Same Instruction-Tuning block as Ollama: SLMs require explicit Chain of Thought
+# instructions to parse MCP tool output correctly; cloud models do not.
+def _make_lm_studio_client(model: str):
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        raise ImportError("lm_studio provider requires: pip install openai")
+
+    base_url = os.environ.get("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
+
+    async def complete(system_prompt: str, user_prompt: str) -> str:
+        client = AsyncOpenAI(base_url=base_url, api_key="lm-studio")
+        # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
+        full_system = LOCAL_SLM_SYSTEM_PREFIX.strip() + "\n\n" + system_prompt
+        r = await client.chat.completions.create(
+            model=model or "local-model",
+            messages=[
+                {"role": "system", "content": full_system},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        return r.choices[0].message.content or ""
+
+    return complete
 
 
 def _sample_book_standard(title: str, author: str | None) -> dict | None:
@@ -228,9 +378,16 @@ def build_forensic_report(
     return "\n".join(lines)
 
 
-async def run_forensic_audit(title: str, author: str | None, observed: dict | None) -> str:
+async def run_forensic_audit(
+    title: str,
+    author: str | None,
+    observed: dict | None,
+    provider: str | None = None,
+) -> str:
     """
     Main orchestration: connect to MCP server, run Librarian → Analyst → Report.
+    When provider is set (anthropic, openai, ollama, lm_studio), uses LLM to
+    synthesize the report; otherwise uses deterministic build_forensic_report().
     """
     server_params = get_server_params()
 
@@ -281,12 +438,38 @@ async def run_forensic_audit(title: str, author: str | None, observed: dict | No
             )
 
             # 3. Supervisor: combine and output Forensic Report
+            if provider and provider != "none":
+                try:
+                    client = get_model_client(provider)
+                    system = (
+                        "Synthesize a Forensic Report from the given tool outputs. "
+                        "Include: Title, Author, Date; Librarian Findings; Analyst Findings "
+                        "(Consistency, Confidence, Discrepancies); final verdict."
+                    )
+                    user = (
+                        f"Title: {title}\nAuthor: {author or '(unspecified)'}\n\n"
+                        f"Librarian output:\n{librarian_result.get('raw', '')}\n\n"
+                        f"Analyst output:\n{analyst_result.get('raw', '')}"
+                    )
+                    return await client(system, user)
+                except Exception as e:
+                    return (
+                        f"[LLM synthesis failed: {e}]\n\n"
+                        + build_forensic_report(title, author, librarian_result, analyst_result)
+                    )
             return build_forensic_report(title, author, librarian_result, analyst_result)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="MCP Forensic Orchestrator — Supervisor Pattern"
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["anthropic", "openai", "ollama", "lm_studio", "none"],
+        default="anthropic",
+        help="LLM provider: cloud (anthropic, openai) or local SLM (ollama, lm_studio). "
+             "Use 'none' for deterministic report only.",
     )
     parser.add_argument(
         "--title",
@@ -329,7 +512,12 @@ def main() -> None:
             "observed_year": args.observed_year,
         }
 
-    report = asyncio.run(run_forensic_audit(args.title, args.author, observed))
+    report = asyncio.run(
+        run_forensic_audit(
+            args.title, args.author, observed,
+            provider=args.provider if args.provider != "none" else None,
+        )
+    )
     print(report)
 
 

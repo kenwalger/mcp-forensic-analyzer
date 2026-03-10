@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-03-10
+
+### Added
+
+- **LLM provider abstraction** – `orchestrator.py` now supports cloud and local LLMs via `--provider`:
+  - Cloud: `anthropic`, `openai` (require API keys)
+  - Local SLMs: `ollama`, `lm_studio` (Ollama or LM Studio running locally)
+  - `none` for deterministic report only (no LLM synthesis)
+- **get_model_client(provider)** – Abstract factory returning an async callable for LLM completion; unifies provider-specific APIs.
+- **Instruction-Tuning block for local SLMs** – Ollama and LM Studio providers prepend an explicit Chain of Thought system prompt (`LOCAL_SLM_SYSTEM_PREFIX`) so SLMs handle MCP tool schema output correctly. Cloud models infer structure; smaller models need step-by-step guidance. All local inference logic tagged with `# [Post 3 - Edge AI]` comments.
+- **LLM-powered report synthesis** – When a provider is set, the Supervisor uses the LLM to synthesize the Forensic Report from raw tool outputs; falls back to deterministic formatting on error.
+
+### Changed
+
+- **orchestrator.py** – New `--provider` CLI argument (default `anthropic`). Supervisor optionally invokes LLM based on provider. `requirements.txt` documents optional LLM deps (anthropic, openai, ollama).
+
 ## [0.11.0] - 2026-03-10
 
 ### Added
