@@ -25,5 +25,7 @@ The underlying "Relational Audit" logic is industry-agnostic. Future "Expert Mod
 - **Multi-Tenant Support:** Enabling different dealers to share a "Common Ground Truth" database while maintaining private Inventory and Market data.
 
 ## Phase 5: Production Hardening
-- **Stricter Tokenization:** Transition from substring matching to normalized structured tokens for bibliographic verification.
-- **Confidence-by-Field:** Implementing weighted scoring where certain fields (like "Typographic Errors") carry more weight than others (like "Binding Color").
+- [x] **Judge Framework:** Golden dataset (`tests/golden_dataset.json`) and evaluator (`examples/evaluator.py`) for grading orchestrator output on Precision, Recall, Reasoning Quality.
+- [x] **Prompt Externalization:** Prompts moved to `config/prompts.yaml` for easier tuning and versioning.
+- [ ] **Stricter Tokenization:** Transition from substring matching to normalized structured tokens for bibliographic verification. `audit_artifact_consistency` marked ready.
+- [ ] **Confidence-by-Field:** Implementing weighted scoring where certain fields (like "Typographic Errors") carry more weight than others (like "Binding Color").

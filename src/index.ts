@@ -70,6 +70,8 @@ server.registerTool(
                 first_edition_indicators_observed: z.array(z.string()),
                 points_of_issue_observed: z.array(z.string()),
                 observed_year: z.number().optional(),
+                binding_type_observed: z.string().optional(),
+                paper_watermark_observed: z.string().optional(),
             }),
         }
     },
