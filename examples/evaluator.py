@@ -64,12 +64,15 @@ def _parse_report(report: str) -> tuple[bool | None, list[dict[str, str]], bool]
         consistent = consistency_match.group(1).upper() == "PASS"
         consistency_found = True
 
-    # Match discrepancy lines: " - [High/Medium/Low] field_name: ..." (analyst prompt assigns MEDIUM too)
-    for m in re.finditer(r"-\s+\[(High|Medium|Low)\]\s+([\w_]+):", report):
-        key = (m.group(2), m.group(1))
+    # Match discrepancy lines: " - [High/Medium/Low] field_name: ..." (case-insensitive; analyst prompt uses [HIGH]/[LOW])
+    for m in re.finditer(
+        r"-\s+\[(High|Medium|Low)\]\s+([\w_]+):", report, re.IGNORECASE
+    ):
+        field, severity = m.group(2), m.group(1)
+        key = (field, severity.lower())  # canonical for dedup and precision/recall
         if key not in seen:
             seen.add(key)
-            discrepancies.append({"field": m.group(2), "severity": m.group(1)})
+            discrepancies.append({"field": field, "severity": severity})
 
     return consistent, discrepancies, consistency_found
 
@@ -77,9 +80,9 @@ def _parse_report(report: str) -> tuple[bool | None, list[dict[str, str]], bool]
 def _compute_precision_recall(
     expected: list[dict], actual: list[dict]
 ) -> tuple[float, float]:
-    """Precision = TP/(TP+FP), Recall = TP/(TP+FN)."""
-    expected_set = {(d["field"], d["severity"]) for d in expected}
-    actual_set = {(d["field"], d["severity"]) for d in actual}
+    """Precision = TP/(TP+FP), Recall = TP/(TP+FN). Severity matched case-insensitively."""
+    expected_set = {(d["field"], d["severity"].lower()) for d in expected}
+    actual_set = {(d["field"], d["severity"].lower()) for d in actual}
     tp = len(expected_set & actual_set)
     fp = len(actual_set - expected_set)
     fn = len(expected_set - actual_set)
@@ -112,7 +115,10 @@ def _reasoning_quality(report: str, case: dict) -> float:
         else:
             score += 10  # partial
     else:
-        if "Discrepancies: None" in report or ("Discrepancies:" in report and re.search(r"\[(High|Medium|Low)\]", report) is None):
+        if "Discrepancies: None" in report or (
+            "Discrepancies:" in report
+            and re.search(r"\[(High|Medium|Low)\]", report, re.IGNORECASE) is None
+        ):
             score += 25
         else:
             score += 10

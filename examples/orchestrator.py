@@ -30,7 +30,6 @@ import json
 import logging
 import os
 import pathlib
-import re
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 
@@ -93,10 +92,14 @@ def _get_prompts() -> dict[str, Any]:
 
 
 def _substitute_prompt_template(template: str, **kwargs: str) -> str:
-    """Replace {{key}} placeholders with values. Use when consuming the_judge prompts."""
+    """
+    Replace {{key}} placeholders with values. Use when consuming the_judge prompts.
+    Uses str.replace (not re.sub) to avoid backslash interpretation in replacement
+    strings (e.g. json.dumps output with \\n, \\t would be corrupted by regex).
+    """
     result = template
     for key, value in kwargs.items():
-        result = re.sub(rf"\{{{{{key}\}}}}", str(value), result)
+        result = result.replace("{{" + key + "}}", str(value))
     return result
 
 

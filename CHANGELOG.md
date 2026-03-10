@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.2] - 2026-03-10
+
+### Fixed
+
+- **_substitute_prompt_template** – Replaced `re.sub` with `str.replace` to avoid backslash interpretation in replacement strings; `json.dumps` output (e.g. `\n`, `\t`) was being corrupted when passed to the LLM. Also removes unescaped `{`/`}` from regex pattern (Python 3.12+ deprecation).
+- **_parse_report case-sensitivity** – Discrepancy regex now uses `re.IGNORECASE`; analyst prompt instructs uppercase `[HIGH]`/`[LOW]`/`[MEDIUM]`, so LLM-generated reports were previously missed and precision/recall were wrong.
+- **_compute_precision_recall** – Severity comparison now case-insensitive; ensures golden dataset (`High`) matches LLM output (`HIGH`).
+- **_reasoning_quality** – Discrepancy-presence check now case-insensitive.
+
 ## [0.13.1] - 2026-03-10
 
 ### Added
