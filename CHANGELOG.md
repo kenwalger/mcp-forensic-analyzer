@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.3] - 2026-03-10
+
+### Added
+
+- **AuditSeverity Medium** – `src/lib/schemas.ts` adds `"Medium"` to `AuditSeverity` enum so the schema aligns with the analyst prompt in `prompts_the_judge.yaml` (LOW/MEDIUM/HIGH). Audit tool still emits Low | High only; Medium reserved for future use.
+
+### Changed
+
+- **run_evaluation error handling** – `asyncio.gather` now uses `return_exceptions=True`; a single failing case no longer aborts the entire evaluation. Failed cases are logged, recorded with grade 0 and error details, and included in the results.
+- **prompts_the_judge.yaml** – Trailing newline added for POSIX EOF convention.
+
 ## [0.13.2] - 2026-03-10
 
 ### Fixed

@@ -205,8 +205,31 @@ async def run_evaluation(provider: str = "none", verbose: bool = False) -> dict:
             "report_preview": report[:500] + "..." if len(report) > 500 else report,
         }
 
-    results = await asyncio.gather(*(_run_case(c) for c in cases))
-    results = list(results)
+    raw = await asyncio.gather(
+        *(_run_case(c) for c in cases), return_exceptions=True
+    )
+    results = []
+    for i, r in enumerate(raw):
+        if isinstance(r, BaseException):
+            case_id = cases[i].get("id", "unknown") if i < len(cases) else "unknown"
+            _logger.exception("Case %s failed: %s", case_id, r)
+            results.append({
+                "case_id": case_id,
+                "description": cases[i].get("description", "") if i < len(cases) else "",
+                "expected_outcome": cases[i].get("expected_outcome", "") if i < len(cases) else "",
+                "grade": {
+                    "overall": 0,
+                    "precision": 0,
+                    "recall": 0,
+                    "reasoning_quality": 0,
+                    "consistency_correct": None,
+                    "format_recognized": False,
+                    "error": str(r),
+                },
+                "report_preview": f"[Evaluation failed: {r}]",
+            })
+        else:
+            results.append(r)
 
     avg_overall = sum(r["grade"]["overall"] for r in results) / len(results) if results else 0
     return {
