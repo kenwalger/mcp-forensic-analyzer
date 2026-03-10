@@ -35,7 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HTTP client lifecycle** – Construct Anthropic, OpenAI, Ollama, LM Studio clients once at factory time rather than inside the `complete()` closure on every invocation.
 - **ImportError propagation** – Re-raise `ImportError` from LLM synthesis so missing provider SDKs surface clear install guidance; other exceptions still fall back to deterministic report.
 - **README Ollama model** – Prerequisite example now pulls `llama3.2` to match orchestrator default; avoid "model not found" when following the guide verbatim.
-- **LLM client lifecycle** – `get_model_client` returns an async context manager; clients are closed on exit to avoid connection leaks in non-CLI use.
+- **LLM client lifecycle** – `get_model_client` returns an async context manager; clients are closed on exit (awaiting async `close`/`aclose` when present) to avoid connection leaks in non-CLI use.
+- **Ollama host** – `OLLAMA_HOST` env var (default `http://localhost:11434`) for remote Ollama instances; mirrors `LM_STUDIO_BASE_URL` pattern.
 - **Request timeout** – All LLM calls use `LLM_TIMEOUT` (default 120s, via `LLM_TIMEOUT` env); prevents indefinite hang on stalled local server.
 - **Raw-excerpt delimiter** – Parse-fail fallback now JSON-escapes the excerpt so malicious output cannot embed `---END TOOL OUTPUT---` and break prompt fences.
 

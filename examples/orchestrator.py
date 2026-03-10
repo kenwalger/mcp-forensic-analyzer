@@ -90,10 +90,13 @@ class _LLMClientContext:
         return self._complete_fn
 
     async def __aexit__(self, *args: Any) -> None:
-        if hasattr(self._client, "close"):
-            self._client.close()
-        elif hasattr(self._client, "aclose"):
-            await self._client.aclose()
+        close_fn = getattr(self._client, "aclose", None) or getattr(
+            self._client, "close", None
+        )
+        if close_fn is not None:
+            result = close_fn()
+            if asyncio.iscoroutine(result):
+                await result
 
 
 def get_model_client(provider: str) -> _LLMClientContext:
@@ -171,7 +174,8 @@ def _make_ollama_client(model: str):
     except ImportError:
         raise ImportError("ollama provider requires: pip install ollama")
 
-    client = AsyncClient()
+    host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    client = AsyncClient(host=host)
     # Ollama client uses host; timeout via request_options if supported
     _timeout = LLM_TIMEOUT
 
