@@ -19,6 +19,8 @@ To manage enterprise scale, we implement **Semantic Routing**:
 - **Tiered Intelligence:** Requests are classified by complexity. Simple tasks are routed to local SLMs (Phi-4/Llama 3.2), while complex forensic tasks are escalated to Claude 3.5.
 - **Cost Optimization:** This approach reduces inference costs by up to 80% without sacrificing high-end reasoning where it matters.
 
+> **Architect’s Summary:** This implementation solves the three "Last Mile" problems of enterprise AI: Standardization (via MCP), Reliability (via automated LLM-as-a-Judge), and Sustainability (via Tiered Intelligence Routing). It transitions AI from brittle, high-cost experiments to governed, cost-optimized infrastructure.
+
 ## 🛠️ Features
 - **Discovery-First:** Implements the full MCP Lifecycle (Handshake -> Manifest -> Execution).
 - **Archival Tools:** Specialized functions for metadata cross-referencing and watermark verification.
@@ -60,3 +62,18 @@ OLLAMA_HOST=http://192.168.1.10:11434 python examples/orchestrator.py --provider
 ```
 
 > Note: SLMs require explicit instruction tuning. The orchestrator includes an optimized system prompt to help small models handle MCP JSON schemas effectively.
+
+### Running The Judge
+```bash
+python examples/evaluator.py
+```
+
+### Running with The Accountant (Semantic Router)
+Route requests by complexity to save budget—simple queries use local SLMs, complex forensic tasks use cloud models:
+
+```bash
+python examples/router.py --query "Look up The Hobbit" --title "The Hobbit" --author "Tolkien"
+python examples/orchestrator.py --use-accountant --query "Compare points of issue and binding across editions" --title "The Great Gatsby"
+```
+
+Configure routing via `ACCOUNTANT_MODEL` (classification model), `ACCOUNTANT_CLASSIFICATION_PROVIDER` (default: ollama; use `lm_studio` if only LM Studio available), `ACCOUNTANT_LEVEL_1_PROVIDER`, `ACCOUNTANT_LEVEL_2_PROVIDER`.

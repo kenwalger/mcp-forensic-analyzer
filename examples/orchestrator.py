@@ -30,6 +30,7 @@ import json
 import logging
 import os
 import pathlib
+import sys
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 
@@ -37,6 +38,11 @@ import yaml
 
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
+
+# Ensure examples/ is on sys.path for router import (robust when imported as module)
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +52,6 @@ LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "120"))
 # -----------------------------------------------------------------------------
 # Paths: script lives in examples/, server in parent
 # -----------------------------------------------------------------------------
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 PROMPTS_PATH = CONFIG_DIR / "prompts.yaml"
@@ -76,6 +81,7 @@ def _load_prompts() -> dict[str, Any]:
     result: dict[str, Any] = {
         "local_slm_system_prefix": (data.get("local_slm_system_prefix") or "").strip(),
         "supervisor_system": (data.get("supervisor_system") or "").strip(),
+        "accountant": data.get("accountant") or {},
     }
     if PROMPTS_THE_JUDGE_PATH.exists():
         with open(PROMPTS_THE_JUDGE_PATH, encoding="utf-8") as f:
@@ -126,17 +132,31 @@ class _LLMClientContext:
                 await result
 
 
-def get_model_client(provider: str) -> _LLMClientContext:
+def get_model_client(
+    provider: str,
+    *,
+    raw_system: bool = False,
+    model_override: str | None = None,
+) -> _LLMClientContext:
     """
     Abstract LLM client factory. Returns an async context manager that yields
     complete(system_prompt, user_prompt) -> str and closes the client on exit.
 
     Providers: anthropic, openai, ollama, lm_studio.
+
+    When raw_system=True, Ollama/LM Studio clients skip the local_slm_system_prefix
+    (used by The Accountant for classification; the forensic CoT prefix would
+    conflict with the strict LEVEL_1/LEVEL_2 classifier persona).
+
+    When model_override is set, use it instead of LLM_MODEL env / DEFAULT_MODELS
+    (avoids env mutation for concurrent or library usage).
     """
-    # Guard empty LLM_MODEL: env var set to "" yields empty model name → API errors
-    model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODELS.get(
-        provider, ""
-    )
+    if model_override is not None and model_override.strip():
+        model = model_override.strip()
+    else:
+        model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODELS.get(
+            provider, ""
+        )
 
     if provider == "anthropic":
         return _make_anthropic_client(model)
@@ -144,9 +164,9 @@ def get_model_client(provider: str) -> _LLMClientContext:
         return _make_openai_client(model)
     # [Post 3 - Edge AI] Local inference paths: Ollama and LM Studio
     elif provider == "ollama":
-        return _make_ollama_client(model)
+        return _make_ollama_client(model, raw_system=raw_system)
     elif provider == "lm_studio":
-        return _make_lm_studio_client(model)
+        return _make_lm_studio_client(model, raw_system=raw_system)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -195,7 +215,7 @@ def _make_openai_client(model: str):
 # [Post 3 - Edge AI] Ollama local inference. Uses the Instruction-Tuning block
 # (local_slm_system_prefix from config/prompts.yaml) for Chain of Thought guidance
 # when handling MCP tool schemas—unlike larger cloud models that can infer structure.
-def _make_ollama_client(model: str):
+def _make_ollama_client(model: str, *, raw_system: bool = False):
     try:
         from ollama import AsyncClient
     except ImportError:
@@ -207,9 +227,11 @@ def _make_ollama_client(model: str):
     _timeout = LLM_TIMEOUT
 
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
-        prompts = _get_prompts()
-        full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
+        if raw_system:
+            full_system = system_prompt  # e.g. Accountant classification; no CoT prefix
+        else:
+            prompts = _get_prompts()
+            full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
         r = await asyncio.wait_for(
             client.chat(
                 model=model,
@@ -228,7 +250,7 @@ def _make_ollama_client(model: str):
 # [Post 3 - Edge AI] LM Studio local inference. OpenAI-compatible API at localhost.
 # Same Instruction-Tuning block as Ollama: SLMs require explicit Chain of Thought
 # instructions to parse MCP tool output correctly; cloud models do not.
-def _make_lm_studio_client(model: str):
+def _make_lm_studio_client(model: str, *, raw_system: bool = False):
     try:
         from openai import AsyncOpenAI
     except ImportError:
@@ -238,9 +260,11 @@ def _make_lm_studio_client(model: str):
     client = AsyncOpenAI(base_url=base_url, api_key="lm-studio", timeout=LLM_TIMEOUT)
 
     async def complete(system_prompt: str, user_prompt: str) -> str:
-        # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
-        prompts = _get_prompts()
-        full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
+        if raw_system:
+            full_system = system_prompt
+        else:
+            prompts = _get_prompts()
+            full_system = prompts["local_slm_system_prefix"] + "\n\n" + system_prompt
         r = await client.chat.completions.create(
             model=model,
             messages=[
@@ -608,6 +632,16 @@ def main() -> None:
              "Use 'none' for deterministic report only.",
     )
     parser.add_argument(
+        "--use-accountant",
+        action="store_true",
+        help="Route via The Accountant (semantic router) to choose provider from query complexity.",
+    )
+    parser.add_argument(
+        "--query",
+        default=None,
+        help="User query for Accountant classification (required with --use-accountant).",
+    )
+    parser.add_argument(
         "--title",
         default="The Hobbit",
         help="Book title to look up and audit",
@@ -661,12 +695,26 @@ def main() -> None:
             "observed_year": args.observed_year,
         }
 
-    report = asyncio.run(
-        run_forensic_audit(
-            args.title, args.author, observed,
-            provider=args.provider if args.provider != "none" else None,
+    if args.use_accountant:
+        if not args.query:
+            parser.error("--query is required when using --use-accountant")
+        if args.provider and args.provider != "none":
+            logger.warning(
+                "--provider=%s ignored when using --use-accountant; "
+                "provider is chosen by the router based on query complexity.",
+                args.provider,
+            )
+        from router import run_with_accountant
+        report = asyncio.run(
+            run_with_accountant(args.query, args.title, args.author, observed)
         )
-    )
+    else:
+        report = asyncio.run(
+            run_forensic_audit(
+                args.title, args.author, observed,
+                provider=args.provider if args.provider != "none" else None,
+            )
+        )
     print(report)
 
 

@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.10] - 2026-03-10
+
+### Added
+
+- **ACCOUNTANT_CLASSIFICATION_PROVIDER** – Env var for classification backend (default: ollama); use `lm_studio` when only LM Studio is available. Previously hardcoded to ollama.
+- **run_with_accountant emit_decision** – Optional `emit_decision=False` to suppress routing log when used as a library; defaults True for CLI.
+
+### Changed
+
+- **classify_query** – Uses `ACCOUNTANT_CLASSIFICATION_PROVIDER`; removed `os.environ` mutation; passes `model_override` to `get_model_client` for concurrency-safe model selection.
+- **get_model_client** – New `model_override` parameter bypasses env/DEFAULT_MODELS; avoids global side effects.
+- **run_with_accountant** – Routing decisions logged via `logging` instead of `print()`; respects `emit_decision` for programmatic use.
+- **orchestrator** – Ensures `examples/` is on `sys.path` before router import for robust module usage.
+
+## [0.13.9] - 2026-03-10
+
+### Fixed
+
+- **Accountant prompt contamination** – `classify_query` now uses `get_model_client("ollama", raw_system=True)` so the accountant's strict LEVEL_1/LEVEL_2 classifier instructions are not contaminated by the forensic `local_slm_system_prefix` (CoT) injected for supervisor synthesis. New `raw_system` parameter on `get_model_client` bypasses the prefix for classification calls.
+
+### Changed
+
+- **orchestrator --provider warning** – When both `--use-accountant` and `--provider` are supplied, log a warning that `--provider` is ignored; the router chooses the provider based on query complexity.
+
+## [0.13.8] - 2026-03-10
+
+### Fixed
+
+- **router.py JSON parsing** – Catch `ValueError` and `TypeError` in addition to `json.JSONDecodeError` when parsing `--observed-indicators`/`--observed-points`; matches orchestrator behavior and prevents tracebacks on non-array JSON input.
+- **_build_accountant_prompt** – Simplify return type from `tuple[str, str]` to `str`; second value was unused.
+
+### Changed
+
+- **Version alignment** – `package.json` and `src/index.ts` set to 0.13.8 to match CHANGELOG.
+
+## [0.13.7] - 2026-03-10
+
+### Added
+
+- **The Accountant (Cognitive Budgeting)** – Semantic router that classifies user queries by complexity and routes to the appropriate backend:
+  - `config/prompts.yaml`: New `accountant` section with `system_prefix` and `routing_logic` (LEVEL_1: simple retrieval/formatting vs LEVEL_2: complex forensic reasoning).
+  - `examples/router.py`: Standalone script using a light model (Ollama, default llama3.2) to classify queries; LEVEL_1 routes to local SLM (ollama), LEVEL_2 to high-reasoning cloud (anthropic). Prints cost decision before running the audit.
+  - `orchestrator.py`: `--use-accountant` and `--query` flags to route via The Accountant from the orchestrator CLI. Provider override chosen by the router.
+  - Env: `ACCOUNTANT_MODEL`, `ACCOUNTANT_LEVEL_1_PROVIDER`, `ACCOUNTANT_LEVEL_2_PROVIDER`.
+  - README: Running with The Accountant section.
+
 ## [0.13.6] - 2026-03-10
 
 ### Changed

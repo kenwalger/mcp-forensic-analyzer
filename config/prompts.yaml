@@ -18,6 +18,19 @@ local_slm_system_prefix: |
 
   Be precise and include all relevant data. Do not omit discrepancies.
 
+# [The Accountant] Cognitive Budgeting — Semantic Router
+# Light model classifies query complexity to route to cheap vs premium backend
+accountant:
+  system_prefix: |
+    You are a strict classifier that analyzes user requests for complexity.
+    You MUST respond with exactly one of: LEVEL_1 or LEVEL_2. No other output.
+  routing_logic: |
+    LEVEL_1: Simple retrieval or formatting. Examples: single lookup, basic metadata request,
+    "find book X", "look up author Y", format-only tasks, status check.
+    LEVEL_2: Complex forensic reasoning, multi-step analysis, comparative evaluation,
+    authenticity verification, points-of-issue analysis, binding/edition comparison,
+    or any request requiring deep bibliographic reasoning.
+
 # Supervisor / report synthesis prompt (used when LLM provider is set)
 supervisor_system: |
   Synthesize a Forensic Report from the given tool outputs.
