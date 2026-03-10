@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+      "forensic-analyser": {
+        "command": "node",
+        "args": ["/path/to/mcp-forensic-analyzer/build/index.js"]
+      }
+    }
+  }
