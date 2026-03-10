@@ -476,9 +476,19 @@ async def _apply_guardian_handshake(
             d for d in disc
             if (d.get("field", ""), d.get("expected", ""), d.get("observed", ""), (d.get("severity") or "").upper()) not in disputed_keys
         ]
-        high_count = sum(1 for d in new_disc if (d.get("severity") or "").upper() == "HIGH")
-        low_count = sum(1 for d in new_disc if (d.get("severity") or "").upper() == "LOW")
-        confidence = max(0, 100 - high_count * 45 - low_count * 5)
+        # Match audit-artifact-consistency.ts: High=45, Low=5; add Medium=20, other=10 for future/extended severities
+        penalty = 0
+        for item in new_disc:
+            s = (item.get("severity") or "").upper()
+            if s == "HIGH":
+                penalty += 45
+            elif s == "MEDIUM":
+                penalty += 20
+            elif s == "LOW":
+                penalty += 5
+            else:
+                penalty += 10  # unknown severity: moderate penalty
+        confidence = max(0, 100 - penalty)
         data = {
             **data,
             "discrepancies": new_disc,

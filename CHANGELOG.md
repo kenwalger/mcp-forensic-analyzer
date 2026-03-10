@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Confidence recalculation ignores MEDIUM/other** – Post-dispute confidence now includes penalty for MEDIUM (20) and unknown severities (10); High=45, Low=5 unchanged. Prevents inflated scores when non-HIGH/LOW discrepancies remain.
 - **Blocking input() in Guardian handshake** – Use `asyncio.to_thread(input, ...)` so the async event loop is not blocked during human authorization prompts.
 - **Prompt injection in disputed findings** – Disputed block passed through `_sanitize_tool_output_for_llm()` before LLM synthesis, consistent with Librarian/Analyst sanitization.
 - **Stale consistency after disputes** – `is_consistent` and `confidence_score` are recalculated from remaining discrepancies after disputes are removed (avoids "Consistency: FAIL / Discrepancies: None").
