@@ -438,33 +438,39 @@ def _apply_guardian_handshake(
     if not high_disc:
         return analyst_result, disputed
 
-    disputed_keys: set[tuple[str, str, str]] = set()
+    disputed_keys: set[tuple[str, str, str, str]] = set()
+    stdin_closed = False
     for d in high_disc:
         summary = (
             f"[{d.get('severity', '?')}] {d.get('field', '')}: "
             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'"
         )
         print(f"\n  Guardian: HIGH severity finding — {summary}")
-        try:
-            answer = input("  Do you authorize this forensic finding? (yes/no): ").strip().lower()
-        except EOFError:
-            logger.warning(
-                "Guardian: stdin closed (non-interactive); treating as 'no' and "
-                "disputing all HIGH findings. Use --no-guardian for CI."
-            )
+        if stdin_closed:
             answer = "no"
+        else:
+            try:
+                answer = input("  Do you authorize this forensic finding? (yes/no): ").strip().lower()
+            except EOFError:
+                logger.warning(
+                    "Guardian: stdin closed (non-interactive); treating as 'no' and "
+                    "disputing all HIGH findings. Use --no-guardian for CI."
+                )
+                stdin_closed = True
+                answer = "no"
         if answer != "yes":
             disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
             disputed_keys.add((
                 d.get("field", ""),
                 d.get("expected", ""),
                 d.get("observed", ""),
+                (d.get("severity") or "").upper(),
             ))
 
     if disputed:
         new_disc = [
             d for d in disc
-            if (d.get("field", ""), d.get("expected", ""), d.get("observed", "")) not in disputed_keys
+            if (d.get("field", ""), d.get("expected", ""), d.get("observed", ""), (d.get("severity") or "").upper()) not in disputed_keys
         ]
         data = {**data, "discrepancies": new_disc}
         analyst_result = {

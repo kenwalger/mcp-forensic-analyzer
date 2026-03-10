@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.13] - 2026-03-10
+
+### Fixed
+
+- **Repeated EOFError in Guardian handshake** – On stdin close, log warning once and treat all remaining HIGH findings as disputed without further `input()` calls (avoids repeated EOFError in non-interactive mode).
+- **Disputed key filter collision** – Include severity in `disputed_keys` so only the exact disputed HIGH findings are removed; low-severity discrepancies with the same (field, expected, observed) are no longer accidentally dropped.
+
+### Changed
+
+- **request_human_signature tool description** – Clarify that the tool is a reference stub; the actual interactive authorization gate lives in the Python orchestrator. Reduces confusion when the MCP server is used directly without the orchestrator.
+
 ## [0.13.12] - 2026-03-10
 
 ### Fixed

@@ -4,7 +4,7 @@
  * Orchestrates forensic bibliographic audits by connecting
  * Notion databases with LLM reasoning capabilities.
  * @author Ken W. Alger (Abiqua Archive)
- * @version 0.13.12
+ * @version 0.13.13
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -34,7 +34,7 @@ const FORENSIC_WORKFLOW_INSTRUCTIONS = `
 
 const server = new McpServer({
     name: "rare-books-intelligence-mcp",
-    version: "0.13.12",
+    version: "0.13.13",
 }, {
     capabilities: { tools: {} },
     instructions: FORENSIC_WORKFLOW_INSTRUCTIONS.trim(),
@@ -155,7 +155,7 @@ server.registerTool(
 server.registerTool(
     "request_human_signature",
     {
-        description: "Request human authorization for a high-stakes forensic finding. Returns PENDING_HUMAN_REVIEW status.",
+        description: "Record a finding that requires human authorization. Returns PENDING_HUMAN_REVIEW status. Note: This is a reference stub; the actual interactive authorization gate is implemented in the Python orchestrator (orchestrator.py). When using the MCP server directly, this tool only records the pending status.",
         inputSchema: {
             finding_summary: z.string().describe("Summary of the finding requiring human sign-off"),
             severity: z.string().describe("Severity of the finding (e.g. HIGH)"),
