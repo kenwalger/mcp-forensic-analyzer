@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **.gitignore** – Add `__pycache__/` and `*.pyc` to exclude compiled bytecode from tracking.
 - **CLI JSON validation** – Wrap `json.loads` for `--observed-indicators`/`--observed-points` in try/except; malformed input produces friendly `parser.error` instead of uncaught traceback.
 - **HTTP client lifecycle** – Construct Anthropic, OpenAI, Ollama, LM Studio clients once at factory time rather than inside the `complete()` closure on every invocation.
+- **ImportError propagation** – Re-raise `ImportError` from LLM synthesis so missing provider SDKs surface clear install guidance; other exceptions still fall back to deterministic report.
+- **README Ollama model** – Prerequisite example now pulls `llama3.2` to match orchestrator default; avoid "model not found" when following the guide verbatim.
 
 ## [0.11.0] - 2026-03-10
 

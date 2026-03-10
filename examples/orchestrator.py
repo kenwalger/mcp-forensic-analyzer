@@ -183,7 +183,7 @@ def _make_lm_studio_client(model: str):
         # [Post 3 - Edge AI] Instruction-Tuning: prepend CoT block for SLM
         full_system = LOCAL_SLM_SYSTEM_PREFIX.strip() + "\n\n" + system_prompt
         r = await client.chat.completions.create(
-            model=model or "local-model",
+            model=model,
             messages=[
                 {"role": "system", "content": full_system},
                 {"role": "user", "content": user_prompt},
@@ -502,6 +502,8 @@ async def run_forensic_audit(
                         "---END TOOL OUTPUT---"
                     )
                     return await client(system, user)
+                except ImportError:
+                    raise  # Missing provider SDK; propagate with clear install guidance
                 except Exception as e:
                     return (
                         f"[LLM synthesis failed: {e}]\n\n"
