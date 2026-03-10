@@ -476,11 +476,14 @@ async def run_forensic_audit(
     author: str | None,
     observed: dict | None,
     provider: str | None = None,
+    book_standard: dict | None = None,
 ) -> str:
     """
     Main orchestration: connect to MCP server, run Librarian → Analyst → Report.
     When provider is set (anthropic, openai, ollama, lm_studio), uses LLM to
     synthesize the report; otherwise uses deterministic build_forensic_report().
+    When book_standard is provided (e.g. from golden dataset), uses it directly
+    instead of librarian/sample, ensuring deterministic evaluation.
     """
     server_params = get_server_params()
 
@@ -494,22 +497,29 @@ async def run_forensic_audit(
         async with ClientSession(read, write) as session:
             await session.initialize()
 
-            # 1. Librarian: pull book details
-            librarian_result = await librarian_agent(session, title, author)
+            # 1. Librarian: pull book details (skip when book_standard provided)
+            if book_standard is not None:
+                librarian_result = {
+                    "error": False,
+                    "data": {"book_standards": [book_standard], "page_ids": []},
+                    "raw": json.dumps({"book_standards": [book_standard]}),
+                }
+            else:
+                librarian_result = await librarian_agent(session, title, author)
 
             # 2. Analyst: audit for discrepancies
             book_page_id = None
-            book_standard = None
-            if not librarian_result.get("error") and librarian_result.get("data"):
-                data = librarian_result["data"]
-                if data.get("page_ids"):
-                    book_page_id = data["page_ids"][0]
-                if data.get("book_standards"):
-                    book_standard = data["book_standards"][0]
+            if book_standard is None:
+                if not librarian_result.get("error") and librarian_result.get("data"):
+                    data = librarian_result["data"]
+                    if data.get("page_ids"):
+                        book_page_id = data["page_ids"][0]
+                    if data.get("book_standards"):
+                        book_standard = data["book_standards"][0]
 
-            # Demo fallback: use sample BookStandard when Notion unavailable
-            if book_standard is None and title:
-                book_standard = _sample_book_standard(title, author)
+                # Demo fallback: use sample BookStandard when Notion unavailable
+                if book_standard is None and title:
+                    book_standard = _sample_book_standard(title, author)
 
             # Default observed data if not provided (for demo)
             if observed is None and book_standard:
@@ -551,15 +561,18 @@ async def run_forensic_audit(
                             "---END TOOL OUTPUT---"
                         )
                         # Inject substituted analyst audit_instruction for audit framing (consumes the_judge)
+                        # Sanitize observed/book_standard through _sanitize_tool_output_for_llm to prevent prompt injection
                         the_judge = prompts.get("the_judge", {})
                         audit_instr = (the_judge.get("analyst", {}) or {}).get("audit_instruction")
                         if audit_instr and book_standard is not None and observed is not None:
                             obs_str = json.dumps(observed) if isinstance(observed, dict) else str(observed)
                             std_str = json.dumps(book_standard) if isinstance(book_standard, dict) else str(book_standard)
+                            obs_safe = _sanitize_tool_output_for_llm(obs_str)
+                            std_safe = _sanitize_tool_output_for_llm(std_str)
                             framed = _substitute_prompt_template(
                                 audit_instr,
-                                observed_data=obs_str,
-                                standard_data=std_str,
+                                observed_data=obs_safe,
+                                standard_data=std_safe,
                             )
                             user = f"Audit framing:\n{framed}\n\n{user}"
                         return await complete(system, user)

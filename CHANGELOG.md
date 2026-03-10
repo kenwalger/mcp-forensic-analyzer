@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.4] - 2026-03-10
+
+### Added
+
+- **run_forensic_audit book_standard param** – Optional `book_standard` argument allows callers (e.g. evaluator) to pass pinned reference data; when provided, librarian lookup is skipped and the given standard is used for deterministic evaluation.
+
+### Changed
+
+- **Evaluator uses golden dataset book_standard** – `run_evaluation` now passes `case.get("book_standard")` to `run_forensic_audit`, so evaluation runs against the dataset's reference standard rather than librarian/sample fallback. Fixes unreliable error-publisher-binding and other cases that depend on exact standard data.
+
+### Fixed
+
+- **Lost traceback in evaluator error handling** – Replaced `_logger.exception()` (no-op outside except block) with `_logger.error(..., exc_info=r)` so exception tracebacks are logged when `asyncio.gather(return_exceptions=True)` returns an exception.
+- **Prompt injection via unsanitized audit framing** – `observed` and `book_standard` data passed through `_sanitize_tool_output_for_llm()` before substitution into the analyst audit_instruction; prevents malicious content in caller-supplied fields from being injected outside the `---BEGIN TOOL OUTPUT---` guard.
+
 ## [0.13.3] - 2026-03-10
 
 ### Added

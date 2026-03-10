@@ -192,6 +192,7 @@ async def run_evaluation(provider: str = "none", verbose: bool = False) -> dict:
             case.get("author"),
             case.get("observed"),
             provider=provider or None,
+            book_standard=case.get("book_standard"),
         )
         grade = _grade_report(report, case)
         if verbose:
@@ -212,7 +213,7 @@ async def run_evaluation(provider: str = "none", verbose: bool = False) -> dict:
     for i, r in enumerate(raw):
         if isinstance(r, BaseException):
             case_id = cases[i].get("id", "unknown") if i < len(cases) else "unknown"
-            _logger.exception("Case %s failed: %s", case_id, r)
+            _logger.error("Case %s failed: %s", case_id, r, exc_info=r)
             results.append({
                 "case_id": case_id,
                 "description": cases[i].get("description", "") if i < len(cases) else "",
