@@ -18,7 +18,7 @@ analyst:
     Review the following observed data: {{observed_data}}. 
     Compare it against the standard: {{standard_data}}.
     Flag any discrepancy as a potential forgery or misidentification.
-    Assign a severity: LOW (cosmetic), MEDIUM (standard variance), HIGH (critical mismatch).
+    Assign a severity: LOW (cosmetic), HIGH (critical mismatch). The audit tool currently emits Low or High only; MEDIUM is reserved for future use.
 
 judge:
   system_prefix: |

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.5] - 2026-03-10
+
+### Added
+
+- **Evaluator --threshold** – CLI option for pass/fail exit threshold (default 70); configurable via `--threshold N`.
+
+### Changed
+
+- **Audit framing inside fence** – Moved audit_instruction framing into the `---BEGIN TOOL OUTPUT---` / `---END TOOL OUTPUT---` block so the supervisor_system guard covers it; previously it was outside the fence.
+- **Analyst prompt severity** – Aligned with audit tool: "LOW (cosmetic), HIGH (critical mismatch). The audit tool currently emits Low or High only; MEDIUM is reserved for future use." Prevents LLM-generated MEDIUM false positives in evaluation.
+- **_compute_precision_recall** – Switched from set-based to Counter-based deduplication; correctly handles duplicate (field, severity) pairs for multi-indicator cases.
+
 ## [0.13.4] - 2026-03-10
 
 ### Added

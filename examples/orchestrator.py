@@ -552,18 +552,10 @@ async def run_forensic_audit(
                         analyst_safe = _sanitize_tool_output_for_llm(
                             analyst_result.get("raw", "")
                         )
-                        user = (
-                            f"Title: {_sanitize_cli_for_prompt(title)}\n"
-                            f"Author: {_sanitize_cli_for_prompt(author)}\n\n"
-                            "---BEGIN TOOL OUTPUT---\n"
-                            f"Librarian:\n{librarian_safe}\n\n"
-                            f"Analyst:\n{analyst_safe}\n"
-                            "---END TOOL OUTPUT---"
-                        )
-                        # Inject substituted analyst audit_instruction for audit framing (consumes the_judge)
-                        # Sanitize observed/book_standard through _sanitize_tool_output_for_llm to prevent prompt injection
+                        # Build tool output block; audit framing must be inside fence for guard coverage
                         the_judge = prompts.get("the_judge", {})
                         audit_instr = (the_judge.get("analyst", {}) or {}).get("audit_instruction")
+                        tool_parts = []
                         if audit_instr and book_standard is not None and observed is not None:
                             obs_str = json.dumps(observed) if isinstance(observed, dict) else str(observed)
                             std_str = json.dumps(book_standard) if isinstance(book_standard, dict) else str(book_standard)
@@ -574,7 +566,16 @@ async def run_forensic_audit(
                                 observed_data=obs_safe,
                                 standard_data=std_safe,
                             )
-                            user = f"Audit framing:\n{framed}\n\n{user}"
+                            tool_parts.append(f"Audit framing:\n{framed}")
+                        tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
+                        tool_block = "\n\n".join(tool_parts)
+                        user = (
+                            f"Title: {_sanitize_cli_for_prompt(title)}\n"
+                            f"Author: {_sanitize_cli_for_prompt(author)}\n\n"
+                            "---BEGIN TOOL OUTPUT---\n"
+                            f"{tool_block}\n"
+                            "---END TOOL OUTPUT---"
+                        )
                         return await complete(system, user)
                 except ImportError:
                     raise  # Missing provider SDK; propagate with clear install guidance

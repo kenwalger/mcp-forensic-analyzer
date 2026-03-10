@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 # Add parent so we can import orchestrator
@@ -80,12 +81,19 @@ def _parse_report(report: str) -> tuple[bool | None, list[dict[str, str]], bool]
 def _compute_precision_recall(
     expected: list[dict], actual: list[dict]
 ) -> tuple[float, float]:
-    """Precision = TP/(TP+FP), Recall = TP/(TP+FN). Severity matched case-insensitively."""
-    expected_set = {(d["field"], d["severity"].lower()) for d in expected}
-    actual_set = {(d["field"], d["severity"].lower()) for d in actual}
-    tp = len(expected_set & actual_set)
-    fp = len(actual_set - expected_set)
-    fn = len(expected_set - actual_set)
+    """
+    Precision = TP/(TP+FP), Recall = TP/(TP+FN). Severity matched case-insensitively.
+    Uses Counter to handle duplicate (field, severity) pairs correctly.
+    """
+    expected_count = Counter(
+        (d["field"], d["severity"].lower()) for d in expected
+    )
+    actual_count = Counter(
+        (d["field"], d["severity"].lower()) for d in actual
+    )
+    tp = sum((expected_count & actual_count).values())
+    fp = sum((actual_count - expected_count).values())
+    fn = sum((expected_count - actual_count).values())
     precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
     return precision, recall
@@ -255,6 +263,12 @@ def main() -> None:
         help="LLM provider for report synthesis (default: deterministic)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Print per-case grades")
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        default=70,
+        help="Minimum average score to pass (default: 70)",
+    )
 
     args = parser.parse_args()
     out = asyncio.run(run_evaluation(provider=args.provider, verbose=args.verbose))
@@ -266,7 +280,7 @@ def main() -> None:
         for r in out["results"]:
             print(f"    {r['case_id']}: {r['grade']['overall']}/100")
 
-    sys.exit(0 if out["summary"]["average_score"] >= 70 else 1)
+    sys.exit(0 if out["summary"]["average_score"] >= args.threshold else 1)
 
 
 if __name__ == "__main__":
