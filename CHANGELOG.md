@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-03-10
+
+### Added
+
+- **Series 3: The Sovereign Vault** – Local image analysis for forensic audit with strict data sovereignty:
+  - `analyze_artifact_vision` MCP tool: uses sharp to resize images to 512×512, sends to local Ollama (llama3.2-vision:11b). Raw image and base64 cleared from memory after call. Returns only structured text.
+  - `vision_agent` in orchestrator.py: calls the MCP tool and injects visual findings into Analyst context.
+  - `--artifact-image` and `--analysis-focus` CLI flags on orchestrator and router.
+  - Vision is Sovereign-Only: never routed to cloud via The Accountant; always uses local Ollama.
+  - `vision_context` and `visual_findings` added to audit tool input/output; VISION FINDINGS section in forensic report.
+  - Workflow step 2 in FORENSIC_WORKFLOW_INSTRUCTIONS; OLLAMA_VISION_MODEL env var.
+
 ## [0.13.14] - 2026-03-10
 
 ### Fixed

@@ -101,11 +101,14 @@ async def run_with_accountant(
     *,
     emit_decision: bool = True,
     guardian_enabled: bool = True,
+    artifact_image_path: str | None = None,
+    analysis_focus: str = "typography",
 ) -> str:
     """
     Classify the query, optionally log the cost decision, and run the forensic audit
     with the appropriate provider. When emit_decision=True (default), logs the routing
     decision via logging; set False for programmatic use when stdout must stay clean.
+    artifact_image_path: Vision runs locally (Sovereign Vault) regardless of routing.
     """
     level = await classify_query(query)
     provider = get_provider_for_level(level)
@@ -123,6 +126,8 @@ async def run_with_accountant(
         provider=provider,
         book_standard=book_standard,
         guardian_enabled=guardian_enabled,
+        artifact_image_path=artifact_image_path,
+        analysis_focus=analysis_focus,
     )
 
 
@@ -170,6 +175,16 @@ def main() -> None:
         action="store_true",
         help="Skip human-in-the-loop authorization for HIGH findings (for CI/non-interactive).",
     )
+    parser.add_argument(
+        "--artifact-image",
+        default=None,
+        help="Path to artifact image for Vision analysis (Sovereign Vault: local Ollama only).",
+    )
+    parser.add_argument(
+        "--analysis-focus",
+        default="typography",
+        help="Focus for Vision analysis (e.g. typography, binding_texture). Default: typography.",
+    )
     args = parser.parse_args()
 
     observed = None
@@ -193,6 +208,8 @@ def main() -> None:
         run_with_accountant(
             args.query, args.title, args.author, observed,
             guardian_enabled=not args.no_guardian,
+            artifact_image_path=args.artifact_image,
+            analysis_focus=args.analysis_focus,
         )
     )
     print(report)

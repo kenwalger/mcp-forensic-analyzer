@@ -1,6 +1,6 @@
 {
   "name": "rare-books-intelligence-mcp",
-  "version": "0.13.14",
+  "version": "0.14.0",
   "description": "MCP server for rare books intelligence using Notion",
   "type": "module",
   "main": "dist/index.js",
@@ -25,6 +25,7 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@notionhq/client": "^2.2.15",
     "express": "^5.2.1",
+    "sharp": "^0.34.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

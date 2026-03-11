@@ -32,3 +32,8 @@ export {
   executeRequestHumanSignature,
   type RequestHumanSignatureInput,
 } from "./request-human-signature.js";
+export {
+  executeAnalyzeArtifactVision,
+  type AnalyzeArtifactVisionInput,
+  type AnalyzeArtifactVisionResult,
+} from "./analyze-artifact-vision.js";

@@ -368,6 +368,42 @@ def _sanitize_cli_for_prompt(s: str | None, max_len: int = 200) -> str:
 # -----------------------------------------------------------------------------
 
 
+# SOVEREIGN-ONLY: The Vision tool (analyze_artifact_vision) must NEVER be routed to a
+# cloud provider via The Accountant. It processes images locally only for data sovereignty.
+# When using --use-accountant, vision is invoked only when artifact_image_path is
+# provided, and it always calls the MCP tool (local Ollama). Do not add vision to
+# LEVEL_2 cloud routing.
+
+
+async def vision_agent(
+    session: ClientSession,
+    image_path: str,
+    analysis_focus: str = "typography",
+) -> dict:
+    """
+    Vision: Uses analyze_artifact_vision to analyze artifact images locally.
+    Sovereign Vault: processes only on local Ollama; never routed to cloud.
+    Returns {visual_findings: str} or {error: True, message: str}.
+    """
+    args: dict = {"image_path": image_path, "analysis_focus": analysis_focus}
+    result = await session.call_tool("analyze_artifact_vision", arguments=args)
+    text = extract_text_content(result)
+
+    if result.isError:
+        return {"error": True, "message": text, "raw": text, "visual_findings": ""}
+
+    try:
+        data = json.loads(text)
+        return {
+            "error": False,
+            "data": data,
+            "raw": text,
+            "visual_findings": data.get("visual_findings", "") or data.get("error", ""),
+        }
+    except json.JSONDecodeError:
+        return {"error": False, "data": None, "raw": text, "visual_findings": ""}
+
+
 async def librarian_agent(session: ClientSession, title: str, author: str | None) -> dict:
     """
     Librarian: Uses find_book_in_master_bibliography to pull book details.
@@ -394,10 +430,12 @@ async def analyst_agent(
     book_standard_page_id: str | None,
     book_standard: dict | None,
     observed: dict,
+    vision_context: str | None = None,
 ) -> dict:
     """
     Analyst: Uses audit_artifact_consistency to check for discrepancies.
     Requires either book_standard_page_id (Notion page ID) or book_standard (inline).
+    vision_context: optional visual description from VisionAgent (Sovereign Vault).
     """
     args: dict = {"observed": observed}
     if book_standard_page_id:
@@ -410,6 +448,8 @@ async def analyst_agent(
             "message": "Either book_standard_page_id or book_standard is required",
             "raw": "",
         }
+    if vision_context:
+        args["vision_context"] = vision_context
 
     result = await session.call_tool("audit_artifact_consistency", arguments=args)
     text = extract_text_content(result)
@@ -604,6 +644,17 @@ def build_forensic_report(
                 lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
                             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
 
+        vf = data.get("visual_findings")
+        if vf:
+            lines.extend([
+                "",
+                "───────────────────────────────────────────────────────────────",
+                "  VISION FINDINGS (Sovereign Vault — Local Analysis)",
+                "───────────────────────────────────────────────────────────────",
+                "",
+                f"  {vf}",
+            ])
+
     lines.extend([
         "",
         "═══════════════════════════════════════════════════════════════",
@@ -621,15 +672,19 @@ async def run_forensic_audit(
     provider: str | None = None,
     book_standard: dict | None = None,
     guardian_enabled: bool = True,
+    artifact_image_path: str | None = None,
+    analysis_focus: str = "typography",
 ) -> str:
     """
-    Main orchestration: connect to MCP server, run Librarian → Analyst → Report.
+    Main orchestration: connect to MCP server, run Librarian → [Vision] → Analyst → Report.
     When provider is set (anthropic, openai, ollama, lm_studio), uses LLM to
     synthesize the report; otherwise uses deterministic build_forensic_report().
     When book_standard is provided (e.g. from golden dataset), uses it directly
     instead of librarian/sample, ensuring deterministic evaluation.
     When guardian_enabled=True (default), HIGH severity discrepancies trigger
     a human-in-the-loop authorization prompt before finalizing.
+    When artifact_image_path is provided, VisionAgent runs first (Sovereign Vault:
+    local Ollama only, never routed to cloud) and injects visual findings into Analyst.
     """
     server_params = get_server_params()
 
@@ -682,8 +737,23 @@ async def run_forensic_audit(
                     "points_of_issue_observed": [],
                 }
 
+            # Sovereign Vault: if artifact image provided, run Vision first; inject into Analyst
+            vision_context: str | None = None
+            if artifact_image_path:
+                vision_result = await vision_agent(
+                    session, artifact_image_path, analysis_focus
+                )
+                if not vision_result.get("error") and vision_result.get("visual_findings"):
+                    vision_context = vision_result["visual_findings"]
+                elif vision_result.get("error"):
+                    logger.warning(
+                        "Vision analysis failed: %s; proceeding without visual context.",
+                        vision_result.get("message", "unknown"),
+                    )
+
             analyst_result = await analyst_agent(
-                session, book_page_id, book_standard, observed
+                session, book_page_id, book_standard, observed,
+                vision_context=vision_context,
             )
 
             # 2b. Guardian: human-in-the-loop for HIGH severity findings
@@ -815,6 +885,16 @@ def main() -> None:
         action="store_true",
         help="Skip human-in-the-loop authorization for HIGH findings (for CI/non-interactive use).",
     )
+    parser.add_argument(
+        "--artifact-image",
+        default=None,
+        help="Path to artifact image for Vision analysis (Sovereign Vault: local Ollama only).",
+    )
+    parser.add_argument(
+        "--analysis-focus",
+        default="typography",
+        help="Focus for Vision analysis (e.g. typography, binding_texture). Default: typography.",
+    )
 
     args = parser.parse_args()
 
@@ -857,6 +937,8 @@ def main() -> None:
             run_with_accountant(
                 args.query, args.title, args.author, observed,
                 guardian_enabled=not args.no_guardian,
+                artifact_image_path=args.artifact_image,
+                analysis_focus=args.analysis_focus,
             )
         )
     else:
@@ -865,6 +947,8 @@ def main() -> None:
                 args.title, args.author, observed,
                 provider=args.provider if args.provider != "none" else None,
                 guardian_enabled=not args.no_guardian,
+                artifact_image_path=args.artifact_image,
+                analysis_focus=args.analysis_focus,
             )
         )
     print(report)
