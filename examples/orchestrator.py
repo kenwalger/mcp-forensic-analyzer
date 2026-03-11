@@ -394,11 +394,13 @@ async def vision_agent(
 
     try:
         data = json.loads(text)
+        # Use visual_findings only when tool succeeded; never inject error messages
+        vf = "" if data.get("error") else (data.get("visual_findings", "") or "")
         return {
             "error": False,
             "data": data,
             "raw": text,
-            "visual_findings": data.get("visual_findings", "") or data.get("error", ""),
+            "visual_findings": vf,
         }
     except json.JSONDecodeError:
         return {"error": False, "data": None, "raw": text, "visual_findings": ""}

@@ -24,10 +24,11 @@ export interface AnalyzeArtifactVisionResult {
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? "llama3.2-vision:11b";
-const OLLAMA_TIMEOUT_MS = parseInt(
-  process.env.OLLAMA_VISION_TIMEOUT_MS ?? "120000",
-  10
-);
+const OLLAMA_TIMEOUT_MS = (() => {
+  const raw = process.env.OLLAMA_VISION_TIMEOUT_MS?.trim() || "120000";
+  const n = parseInt(raw, 10);
+  return n > 0 && !Number.isNaN(n) ? n : 120000;
+})();
 const IMAGE_BASE = process.env.SOVEREIGN_VAULT_IMAGE_BASE ?? process.cwd();
 
 /**
@@ -39,7 +40,9 @@ async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
   const resolved = resolve(base, imagePath);
   const rel = relative(base, resolved);
   if (rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error(`Path traversal not allowed: ${imagePath}`);
+    throw new Error(
+      `Path traversal not allowed: ${imagePath}. Paths are resolved relative to SOVEREIGN_VAULT_IMAGE_BASE (default: cwd).`
+    );
   }
   if (!existsSync(resolved)) {
     throw new Error(`Image not found: ${imagePath}`);

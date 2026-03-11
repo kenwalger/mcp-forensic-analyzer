@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Privacy guard in analyze_artifact_vision** – Zero resized buffer with Buffer.fill(0) after API call; removed false "cleared from memory" claim (JS strings are immutable).
 - **Ollama fetch timeout** – AbortSignal with OLLAMA_VISION_TIMEOUT_MS (default 120s); prevents indefinite hang on slow model load.
 - **audit vision_context pass-through** – Remove redundant ?? undefined; add comment clarifying Sovereign Vault visual analysis pass-through.
+- **OLLAMA_VISION_TIMEOUT_MS empty string** – Guard against parseInt("", 10)=NaN; empty or invalid env now falls back to 120000ms.
+- **vision_agent error-as-findings** – When tool returns error, do not inject error message as visual_findings; keep vision_context empty.
+- **image_path schema description** – Mention SOVEREIGN_VAULT_IMAGE_BASE and path traversal; improve path-traversal error message.
 
 ### Added
 

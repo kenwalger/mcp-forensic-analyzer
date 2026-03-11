@@ -184,7 +184,7 @@ server.registerTool(
     {
         description: "Sovereign Vault: Analyze artifact image locally. Resizes to 512x512, sends to local Ollama vision model. Returns structured text only; no image data retained. NEVER route to cloud.",
         inputSchema: {
-            image_path: z.string().min(1).describe("Path to artifact image (relative or absolute)"),
+            image_path: z.string().min(1).describe("Path to artifact image. Resolved relative to SOVEREIGN_VAULT_IMAGE_BASE (default: cwd); path traversal rejected."),
             analysis_focus: z.string().min(1).describe("Focus of analysis (e.g. typography, binding_texture)"),
         }
     },
