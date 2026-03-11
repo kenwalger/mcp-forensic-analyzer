@@ -487,8 +487,8 @@ async def _apply_guardian_handshake(
             d for d in disc
             if (d.get("field", ""), d.get("expected", ""), d.get("observed", ""), (d.get("severity") or "").upper()) not in disputed_keys
         ]
-        # Recompute using audit-artifact-consistency.ts formula (High=45, Medium=20, Low=5, other=10)
-        # so post-dispute score stays aligned with analyst; intentional override when discrepancies change
+        # Match audit-artifact-consistency.ts for High=45, Low=5. Extend with Medium=20, other=10
+        # (TS does not emit these today; Python tiers avoid inflated scores if extended later).
         penalty = 0
         for item in new_disc:
             s = (item.get("severity") or "").upper()
@@ -507,6 +507,8 @@ async def _apply_guardian_handshake(
             "is_consistent": len(new_disc) == 0,
             "confidence_score": confidence,
         }
+        # Replace raw with post-dispute serialization so LLM synthesis receives current confirmed
+        # findings; disputed items are passed separately in tool_parts.
         analyst_result = {
             **analyst_result,
             "data": data,

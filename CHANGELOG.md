@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Guardian confidence formula comment** – Clarify that High/Low match audit-artifact-consistency.ts; Medium/other are Python extensions for future-proofing (TS does not emit them today).
+- **Guardian raw field replacement** – Document that analyst_result["raw"] is intentionally replaced with post-dispute serialization so LLM synthesis receives current confirmed findings; disputed items are passed separately.
 - **Guardian system prompt never applied** – Inject guardian.system_prefix into LLM synthesis when guardian_enabled; governance framing was previously loaded but not used.
 - **request_human_signature empty inputs** – Validate finding_summary and severity are non-empty; reject blank invocations with clear error.
 - **Guardian response branching** – Replace double-negative with explicit three-branch (yes/y → authorize; no/n → dispute; other → warn and dispute) for maintainability.
