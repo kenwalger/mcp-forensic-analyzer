@@ -1,10 +1,11 @@
 # MCP Python SDK for stdio client
 mcp>=1.25.0
+python-dotenv>=1.0.0
 # Prompt externalization (config/prompts.yaml)
 pyyaml>=6.0
 
 # LLM providers (install as needed)
 # Cloud: pip install anthropic  # for --provider anthropic
 #        pip install openai     # for --provider openai
-# Local: pip install ollama     # for --provider ollama
-#        pip install openai     # for --provider lm_studio (OpenAI-compatible API)
+# Local provider (Sovereign Vault vision, --provider ollama):
+#        pip install ollama>=0.3.0

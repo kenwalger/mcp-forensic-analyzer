@@ -27,6 +27,8 @@ export interface AuditToolInput {
   observed: unknown;
   /** Optional: summary of recent market/sales context for the report */
   market_context?: string;
+  /** Optional: visual analysis from analyze_artifact_vision (Sovereign Vault) */
+  vision_context?: string;
 }
 
 function normalizeStrings(arr: string[]): string[] {
@@ -157,5 +159,7 @@ export async function executeAuditArtifactConsistency(
     market_context:
       args.market_context ??
       "(No market context provided)",
+    // Pass through Sovereign Vault visual analysis from VisionAgent
+    visual_findings: args.vision_context,
   };
 }

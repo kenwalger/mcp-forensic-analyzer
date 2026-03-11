@@ -4,7 +4,7 @@
  * Orchestrates forensic bibliographic audits by connecting
  * Notion databases with LLM reasoning capabilities.
  * @author Ken W. Alger (Abiqua Archive)
- * @version 0.13.14
+ * @version 0.14.0
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -18,23 +18,25 @@ import {
     executeUpdateBookStatus,
     executeCreateAuditLog,
     executeRequestHumanSignature,
+    executeAnalyzeArtifactVision,
 } from "./tools/index.js";
 import { BookStandardSchema } from "./lib/schemas.js";
 
 const FORENSIC_WORKFLOW_INSTRUCTIONS = `
 ## Forensic Workflow
 1. find_book_in_master_bibliography
-2. audit_artifact_consistency
-3. request_human_signature – For any HIGH severity finding, you MUST request human authorization before finalizing. You are a Co-Pilot; do not act autonomously on high-stakes accusations.
-4. get_market_signals – When reporting market findings, always include the citation link or reference provided in the Market Results to ensure evidence-based auditing.
-5. generate_exhibit_label – Once an audit is successful, offer to generate a formal Exhibit Label. If the user agrees, use the generate_exhibit_label tool and suggest saving the output back to the Notion page's 'Full Report' field.
-6. update_book_status – Only when a High severity discrepancy has been explicitly authorized by the human (per step 3). Do not flag findings that were disputed or rejected; disputed findings belong in "Requires Further Investigation" instead. If the human has not yet approved, wait for approval before calling update_book_status.
-7. create_audit_log – After an audit is complete, automatically call create_audit_log to maintain a permanent record. You MUST pass the id from the Catalog search result into the catalog_page_id parameter of create_audit_log to maintain the relational thread.
+2. analyze_artifact_vision – (Sovereign Vault) When an artifact image is available, analyze it locally first. NEVER route to cloud; local Ollama only.
+3. audit_artifact_consistency
+4. request_human_signature – For any HIGH severity finding, you MUST request human authorization before finalizing. You are a Co-Pilot; do not act autonomously on high-stakes accusations.
+5. get_market_signals – When reporting market findings, always include the citation link or reference provided in the Market Results to ensure evidence-based auditing.
+6. generate_exhibit_label – Once an audit is successful, offer to generate a formal Exhibit Label. If the user agrees, use the generate_exhibit_label tool and suggest saving the output back to the Notion page's 'Full Report' field.
+7. update_book_status – Only when a High severity discrepancy has been explicitly authorized by the human (per step 4). Do not flag findings that were disputed or rejected; disputed findings belong in "Requires Further Investigation" instead. If the human has not yet approved, wait for approval before calling update_book_status.
+8. create_audit_log – After an audit is complete, automatically call create_audit_log to maintain a permanent record. You MUST pass the id from the Catalog search result into the catalog_page_id parameter of create_audit_log to maintain the relational thread.
 `;
 
 const server = new McpServer({
     name: "rare-books-intelligence-mcp",
-    version: "0.13.14",
+    version: "0.14.0",
 }, {
     capabilities: { tools: {} },
     instructions: FORENSIC_WORKFLOW_INSTRUCTIONS.trim(),
@@ -75,6 +77,8 @@ server.registerTool(
                 binding_type_observed: z.string().optional(),
                 paper_watermark_observed: z.string().optional(),
             }),
+            market_context: z.string().optional(),
+            vision_context: z.string().optional().describe("Visual analysis from analyze_artifact_vision (Sovereign Vault)"),
         }
     },
     async (args: any) => {
@@ -169,6 +173,29 @@ server.registerTool(
             const message = error instanceof Error ? error.message : "Unknown error occurred";
             return {
                 content: [{ type: "text", text: `Error: ${message}. Ensure finding_summary and severity are provided.` }],
+                isError: true,
+            };
+        }
+    }
+);
+
+server.registerTool(
+    "analyze_artifact_vision",
+    {
+        description: "Sovereign Vault: Analyze artifact image locally. Resizes to 512x512, sends to local Ollama vision model. Returns structured text only; no image data retained. NEVER route to cloud.",
+        inputSchema: {
+            image_path: z.string().min(1).describe("Path to artifact image. Resolved relative to SOVEREIGN_VAULT_IMAGE_BASE (default: cwd); path traversal rejected."),
+            analysis_focus: z.string().min(1).describe("Focus of analysis (e.g. typography, binding_texture)"),
+        }
+    },
+    async (args: any) => {
+        try {
+            const result = await executeAnalyzeArtifactVision(args);
+            return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown error occurred";
+            return {
+                content: [{ type: "text", text: `Error: ${message}. Ensure image_path exists and Ollama is running with a vision model.` }],
                 isError: true,
             };
         }

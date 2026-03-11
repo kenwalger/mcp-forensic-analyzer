@@ -95,6 +95,7 @@ export const AuditReportSchema = z.object({
   market_context: z
     .string()
     .describe("Summary of recent Notion sales data for this item"),
+  visual_findings: z.string().optional().describe("Visual analysis from Sovereign Vault"),
 });
 
 export type AuditReport = z.infer<typeof AuditReportSchema>;

@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-03-10
+
+### Fixed
+
+- **Path traversal in analyze_artifact_vision** – Reject paths like ../../etc/passwd; resolve against SOVEREIGN_VAULT_IMAGE_BASE (default cwd) and ensure result stays within base.
+- **Privacy guard in analyze_artifact_vision** – Zero resized buffer with Buffer.fill(0) after API call; removed false "cleared from memory" claim (JS strings are immutable).
+- **Ollama fetch timeout** – AbortSignal with OLLAMA_VISION_TIMEOUT_MS (default 120s); prevents indefinite hang on slow model load.
+- **audit vision_context pass-through** – Remove redundant ?? undefined; add comment clarifying Sovereign Vault visual analysis pass-through.
+- **OLLAMA_VISION_TIMEOUT_MS empty string** – Guard against parseInt("", 10)=NaN; empty or invalid env now falls back to 120000ms.
+- **vision_agent error-as-findings** – When tool returns error, do not inject error message as visual_findings; keep vision_context empty.
+- **image_path schema description** – Mention SOVEREIGN_VAULT_IMAGE_BASE and path traversal; improve path-traversal error message.
+- **Symlink traversal bypass** – Use realpath to dereference symlinks; reject if canonical path escapes SOVEREIGN_VAULT_IMAGE_BASE.
+- **analysis_focus prompt injection** – Sanitize in TypeScript (strip control chars, limit 200 chars) and Python (_sanitize_cli_for_prompt).
+- **OLLAMA_HOST validation** – Reject non-local endpoints (localhost, 127.0.0.1, ::1, private IPs only); enforce data sovereignty.
+- **TOCTOU symlink race** – Read from realResolved (verified canonical path) instead of resolved; prevents symlink swap between check and read.
+- **existsSync in async** – Remove; use realpath (throws if missing) for existence check.
+- **OLLAMA_HOST octet bounds** – Validate each IP octet is 0–255; reject e.g. 10.999.0.1.
+- **Timer leak on !res.ok** – Move clearTimeout into finally block so it runs on all exit paths (success, HTTP error, abort, throw).
+- **vision_agent JSON decode** – Log malformed responses with logger.error(); retain safe fallback (visual_findings: "") so audit does not crash.
+- **ollama optional** – Comment out ollama in requirements.txt; cloud users not forced to install.
+- **Vision_Testing.md** – Remove Pillow; clarify sharp handles all image processing in MCP server.
+- **Remove spacy/presidio** – Not used by current orchestrator; defer to next phase.
+- **.env.example** – Add OLLAMA_VISION_MODEL, OLLAMA_VISION_TIMEOUT_MS, SOVEREIGN_VAULT_IMAGE_BASE.
+- **vision_agent observability** – logger.error(f"Vision Agent failed to parse response: {text}").
+- **IPv6 private ranges** – assertLocalOllamaHost accepts fc00::/7, fe80::/10.
+- **Vision failure warning** – Log when proceeding without visual context; audit completes.
+- **OLLAMA_HOST fault tolerance** – Move assertLocalOllamaHost into tool handler; misconfigured host yields tool error instead of MCP server crash at startup.
+- **Privacy hardening (base64)** – Set base64 variable to null after fetch; buffer.fill(0) alone insufficient as string remains in JS heap. Hint GC for memory reclamation.
+- **sanitizeAnalysisFocus empty fallback** – Default to 'general' when input is only control chars or empty after sanitization; avoid empty prompt to Vision SLM.
+- **Guardian timeout comment** – Document that input() thread may orphan on asyncio.wait_for timeout; orchestrator's stdin_closed state handles gracefully.
+- **assertLocalOllamaHost IPv6 normalization** – Strip brackets from hostname ([::1] -> ::1) before safety checks; Node.js URL.hostname includes brackets for IPv6 addresses.
+- **base64 GC hint** – Set base64 to null immediately after fetch completes (in addition to finally); drop reference as soon as request body is consumed.
+- **OLLAMA_HOST allow 0.0.0.0** – Explicitly allow 0.0.0.0 as valid local host in assertLocalOllamaHost.
+- **OLLAMA_VISION_MODEL sync** – .env.example matches TypeScript default (llama3.2-vision:11b).
+- **vision_agent parse failure logging** – Truncate to 100 chars to avoid persisting sensitive forensic data in logs.
+- **sanitizeAnalysisFocus prompt hardening** – Restrict to alphanumeric and basic punctuation only; limit 50 chars.
+- **Vision findings in Supervisor context** – Explicitly include Vision Findings in tool_block sent to Supervisor LLM.
+
+### Added
+
+- **Series 3: The Sovereign Vault** – Local image analysis for forensic audit with strict data sovereignty:
+  - `analyze_artifact_vision` MCP tool: uses sharp to resize images to 512×512, sends to local Ollama (llama3.2-vision:11b). Raw image and base64 cleared from memory after call. Returns only structured text.
+  - `vision_agent` in orchestrator.py: calls the MCP tool and injects visual findings into Analyst context.
+  - `--artifact-image` and `--analysis-focus` CLI flags on orchestrator and router.
+  - Vision is Sovereign-Only: never routed to cloud via The Accountant; always uses local Ollama.
+  - `vision_context` and `visual_findings` added to audit tool input/output; VISION FINDINGS section in forensic report.
+  - Workflow step 2 in FORENSIC_WORKFLOW_INSTRUCTIONS; OLLAMA_VISION_MODEL env var.
+
 ## [0.13.14] - 2026-03-10
 
 ### Fixed
