@@ -9,6 +9,3 @@ pyyaml>=6.0
 #        pip install openai     # for --provider openai
 # Local provider (Sovereign Vault vision, --provider ollama):
 #        pip install ollama>=0.3.0
-spacy
-presidio-analyzer
-presidio-anonymizer

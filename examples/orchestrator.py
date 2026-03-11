@@ -409,12 +409,8 @@ async def vision_agent(
             "raw": text,
             "visual_findings": vf,
         }
-    except json.JSONDecodeError as e:
-        logger.error(
-            "Vision tool returned malformed JSON: %s. Raw output: %s",
-            e,
-            text[:500] + ("..." if len(text) > 500 else ""),
-        )
+    except json.JSONDecodeError:
+        logger.error(f"Vision Agent failed to parse response: {text}")
         return {"error": False, "data": None, "raw": text, "visual_findings": ""}
 
 
@@ -763,6 +759,10 @@ async def run_forensic_audit(
                     logger.warning(
                         "Vision analysis failed: %s; proceeding without visual context.",
                         vision_result.get("message", "unknown"),
+                    )
+                elif vision_context is None:
+                    logger.warning(
+                        "Proceeding without visual context; text-based audit will complete."
                     )
 
             analyst_result = await analyst_agent(

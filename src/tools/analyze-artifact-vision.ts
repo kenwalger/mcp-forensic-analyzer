@@ -26,6 +26,10 @@ function assertLocalOllamaHost(url: string): string {
     const u = new URL(url);
     const host = u.hostname.toLowerCase();
     if (host === "localhost" || host === "127.0.0.1" || host === "::1") return url;
+    // IPv6: fc00::/7 (unique local), fe80::/10 (link-local)
+    if (host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/.test(host)) {
+      return url;
+    }
     const octets = host.split(".").map(Number);
     if (
       octets.length === 4 &&

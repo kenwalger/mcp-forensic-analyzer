@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **vision_agent JSON decode** – Log malformed responses with logger.error(); retain safe fallback (visual_findings: "") so audit does not crash.
 - **ollama optional** – Comment out ollama in requirements.txt; cloud users not forced to install.
 - **Vision_Testing.md** – Remove Pillow; clarify sharp handles all image processing in MCP server.
+- **Remove spacy/presidio** – Not used by current orchestrator; defer to next phase.
+- **.env.example** – Add OLLAMA_VISION_MODEL, OLLAMA_VISION_TIMEOUT_MS, SOVEREIGN_VAULT_IMAGE_BASE.
+- **vision_agent observability** – logger.error(f"Vision Agent failed to parse response: {text}").
+- **IPv6 private ranges** – assertLocalOllamaHost accepts fc00::/7, fe80::/10.
+- **Vision failure warning** – Log when proceeding without visual context; audit completes.
 
 ### Added
 
