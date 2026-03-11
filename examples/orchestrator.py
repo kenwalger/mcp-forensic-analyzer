@@ -397,7 +397,7 @@ def extract_text_content(result) -> str:
         elif isinstance(block, dict) and "text" in block:
             parts.append(block["text"])
         elif hasattr(block, "text"):
-            parts.append(block.text)
+            parts.append(str(getattr(block, "text", "")))
     return "\n".join(parts)
 
 

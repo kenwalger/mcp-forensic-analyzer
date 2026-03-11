@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Library logging etiquette: Remove logger.setLevel(logging.ERROR) from redactor; add docstring note that users can configure `mcp_forensic_analyzer.redactor` logger level in their own logging configuration.
   - Presidio noise reduction: logging.getLogger("presidio-analyzer").setLevel(logging.ERROR) in _ensure_loaded to silence Presidio INFO logs without hard-coding global levels.
   - Exception contract: scrub() try/except tightly scoped; returns (text, 0) on any failure, honoring implicit (str, int) contract.
+  - **Redactor contract fix:** Move self._ensure_loaded() inside scrub's try block so ImportError/OSError from initial load hit except and return (text, 0) instead of crashing caller.
+  - **Type-safe extraction:** extract_text_content hasattr(block, "text") branch now uses str(getattr(block, "text", "")) to prevent TypeError when joining non-string content.
 
 ## [0.14.0] - 2026-03-10
 

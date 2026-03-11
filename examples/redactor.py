@@ -82,11 +82,11 @@ class SovereignRedactor:
         if self._load_failed:
             return text, 0
 
-        self._ensure_loaded()
-        if self._analyzer is None or self._anonymizer is None:
-            return text, 0
-
         try:
+            self._ensure_loaded()
+            if self._analyzer is None or self._anonymizer is None:
+                return text, 0
+
             results = self._analyzer.analyze(
                 text=text,
                 language="en",
