@@ -24,7 +24,7 @@ export interface AnalyzeArtifactVisionResult {
 function assertLocalOllamaHost(url: string): string {
   try {
     const u = new URL(url);
-    const host = u.hostname.toLowerCase();
+    const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
     if (host === "localhost" || host === "127.0.0.1" || host === "::1") return url;
     // IPv6: fc00::/7 (unique local), fe80::/10 (link-local)
     if (host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/.test(host)) {
@@ -152,6 +152,7 @@ export async function executeAnalyzeArtifactVision(
       }),
       signal: controller.signal,
     });
+    base64 = null;
 
     if (!res.ok) {
       const text = await res.text();

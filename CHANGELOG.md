@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Privacy hardening (base64)** – Set base64 variable to null after fetch; buffer.fill(0) alone insufficient as string remains in JS heap. Hint GC for memory reclamation.
 - **sanitizeAnalysisFocus empty fallback** – Default to 'general' when input is only control chars or empty after sanitization; avoid empty prompt to Vision SLM.
 - **Guardian timeout comment** – Document that input() thread may orphan on asyncio.wait_for timeout; orchestrator's stdin_closed state handles gracefully.
+- **assertLocalOllamaHost IPv6 normalization** – Strip brackets from hostname ([::1] -> ::1) before safety checks; Node.js URL.hostname includes brackets for IPv6 addresses.
+- **base64 GC hint** – Set base64 to null immediately after fetch completes (in addition to finally); drop reference as soon as request body is consumed.
 
 ### Added
 
