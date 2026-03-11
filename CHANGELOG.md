@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Exception contract: scrub() try/except tightly scoped; returns (text, 0) on any failure, honoring implicit (str, int) contract.
   - **Redactor contract fix:** Move self._ensure_loaded() inside scrub's try block so ImportError/OSError from initial load hit except and return (text, 0) instead of crashing caller.
   - **Type-safe extraction:** extract_text_content hasattr(block, "text") branch now uses str(getattr(block, "text", "")) to prevent TypeError when joining non-string content.
+  - **Redactor observability:** scrub() except block logs logger.error("PII scrubbing failed during execution: %s", e) before returning (text, 0); runtime failures no longer silent.
+  - **Debug string accuracy:** Raw Vision Output logger.debug only appends "..." when text actually truncated (len(text) > 100).
+  - **Type-safety (all branches):** extract_text_content applies str(getattr(...)) / str(block.get(...)) to TextContent, dict, and hasattr branches to prevent join() errors.
 
 ## [0.14.0] - 2026-03-10
 

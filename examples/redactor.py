@@ -111,5 +111,6 @@ class SovereignRedactor:
             )
             count = len(getattr(anonymized, "items", []))
             return anonymized.text, count
-        except Exception:
+        except Exception as e:
+            logger.error("PII scrubbing failed during execution: %s", e)
             return text, 0

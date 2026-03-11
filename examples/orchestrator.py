@@ -393,9 +393,9 @@ def extract_text_content(result) -> str:
     parts = []
     for block in result.content:
         if isinstance(block, types.TextContent):
-            parts.append(block.text)
+            parts.append(str(getattr(block, "text", "")))
         elif isinstance(block, dict) and "text" in block:
-            parts.append(block["text"])
+            parts.append(str(block.get("text", "")))
         elif hasattr(block, "text"):
             parts.append(str(getattr(block, "text", "")))
     return "\n".join(parts)
@@ -465,7 +465,8 @@ async def vision_agent(
     }
     result = await session.call_tool("analyze_artifact_vision", arguments=args)
     text = extract_text_content(result)
-    logger.debug("Raw Vision Output: %s...", text[:100] if len(text) > 100 else text)
+    excerpt = text[:100] + ("..." if len(text) > 100 else "")
+    logger.debug("Raw Vision Output: %s", excerpt)
 
     if result.isError:
         return {"error": True, "message": text, "raw": text, "visual_findings": ""}
