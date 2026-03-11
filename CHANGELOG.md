@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Guardian input timeout** – 5min timeout per prompt to avoid indefinite MCP session hold; on timeout, treat as disputed and skip remaining prompts. Reduces risk of silent connection drop.
+- **request_human_signature stub semantics** – Return value now includes "NOT AUTHORIZED"; description and schema emphasize the stub does not grant approval. Add Zod .min(1) for finding_summary and severity.
 - **Guardian confidence formula comment** – Clarify that High/Low match audit-artifact-consistency.ts; Medium/other are Python extensions for future-proofing (TS does not emit them today).
 - **Guardian raw field replacement** – Document that analyst_result["raw"] is intentionally replaced with post-dispute serialization so LLM synthesis receives current confirmed findings; disputed items are passed separately.
 - **Guardian system prompt never applied** – Inject guardian.system_prefix into LLM synthesis when guardian_enabled; governance framing was previously loaded but not used.

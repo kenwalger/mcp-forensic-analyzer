@@ -18,5 +18,5 @@ export function executeRequestHumanSignature(
   if (!finding_summary?.trim() || !severity?.trim()) {
     throw new Error("finding_summary and severity must be non-empty");
   }
-  return `PENDING_HUMAN_REVIEW: [${severity}] ${finding_summary}`;
+  return `PENDING_HUMAN_REVIEW: NOT AUTHORIZED. Human must explicitly approve before proceeding. [${severity}] ${finding_summary}`;
 }

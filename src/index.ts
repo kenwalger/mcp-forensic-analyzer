@@ -155,10 +155,10 @@ server.registerTool(
 server.registerTool(
     "request_human_signature",
     {
-        description: "Record a finding that requires human authorization. Returns PENDING_HUMAN_REVIEW status. Note: This is a reference stub; the actual interactive authorization gate is implemented in the Python orchestrator (orchestrator.py). When using the MCP server directly, this tool only records the pending status.",
+        description: "Record a finding that requires human authorization. Returns PENDING_HUMAN_REVIEW — does NOT indicate approval; human must explicitly approve before update_book_status. Reference stub; actual interactive gate is in Python orchestrator.",
         inputSchema: {
-            finding_summary: z.string().describe("Summary of the finding requiring human sign-off"),
-            severity: z.string().describe("Severity of the finding (e.g. HIGH)"),
+            finding_summary: z.string().min(1).describe("Summary of the finding requiring human sign-off"),
+            severity: z.string().min(1).describe("Severity of the finding (e.g. HIGH)"),
         }
     },
     async (args: any) => {

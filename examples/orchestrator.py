@@ -451,10 +451,21 @@ async def _apply_guardian_handshake(
             answer = "no"
         else:
             try:
-                answer = await asyncio.to_thread(
-                    input, "  Do you authorize this forensic finding? (yes/no): "
+                # 5min timeout per prompt to avoid indefinite MCP session hold (server timeout risk)
+                answer = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        input, "  Do you authorize this forensic finding? (yes/no): "
+                    ),
+                    timeout=300,
                 )
                 answer = answer.strip().lower()
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Guardian: input timeout (300s); treating as 'no' and disputing. "
+                    "Use --no-guardian for CI."
+                )
+                stdin_closed = True
+                answer = "no"
             except EOFError:
                 logger.warning(
                     "Guardian: stdin closed (non-interactive); treating as 'no' and "
