@@ -51,10 +51,12 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 # Post 3.2: The Redactor — PII scrubbing for cloud egress (lazy; may fail if deps missing)
 _REDACTOR_DISABLED = object()
-_redactor: "SovereignRedactor | None" = None
+_redactor: Any = None  # SovereignRedactor | None | _REDACTOR_DISABLED
+
+logger = logging.getLogger(__name__)
 
 
-def _get_redactor() -> "SovereignRedactor | None":
+def _get_redactor() -> Any:  # Returns SovereignRedactor | None
     """Lazy-init SovereignRedactor. Returns None if presidio/spacy not installed."""
     global _redactor
     if _redactor is _REDACTOR_DISABLED:
@@ -79,8 +81,6 @@ def _get_redactor() -> "SovereignRedactor | None":
             _redactor = _REDACTOR_DISABLED
             return None
     return _redactor
-
-logger = logging.getLogger(__name__)
 
 # Request timeout for LLM calls (seconds); overridable via LLM_TIMEOUT env
 LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "120"))

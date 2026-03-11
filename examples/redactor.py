@@ -41,14 +41,20 @@ class SovereignRedactor:
             }
             provider = NlpEngineProvider(nlp_configuration=configuration)
             nlp_engine = provider.create_engine()
-            self._analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=["en"])
-            self._anonymizer = AnonymizerEngine()
+            analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=["en"])
+            anonymizer = AnonymizerEngine()
+            self._analyzer = analyzer
+            self._anonymizer = anonymizer
         except ImportError as e:
+            self._analyzer = None
+            self._anonymizer = None
             raise ImportError(
                 "Sovereign Redactor requires: pip install presidio-analyzer presidio-anonymizer spacy && "
                 "python -m spacy download en_core_web_lg"
             ) from e
         except OSError:
+            self._analyzer = None
+            self._anonymizer = None
             logger.error(
                 "Sovereign Redactor: spaCy model not found. Please run: python -m spacy download en_core_web_lg"
             )
@@ -89,5 +95,5 @@ class SovereignRedactor:
             analyzer_results=results,
             operators=operators,
         )
-
-        return anonymized.text, len(results)
+        count = len(getattr(anonymized, "items", []))
+        return anonymized.text, count

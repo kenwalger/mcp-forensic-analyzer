@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Log: "🛡️ Sovereign Vault: [n] entities redacted from egress."
   - Full vision_context passed to Redactor (no truncation before scrub).
   - **Redactor hardening:** OperatorConfig replace with \<REDACTED\>; _ensure_loaded catches ImportError and OSError (missing spaCy model); scrub wrapped in try/except so runtime failure falls back to unredacted; _get_redactor eagerly checks presidio imports, logs 'PII Redactor disabled' on fail; requirements presidio/spacy in Optional section.
+  - **Redactor logic nits:** _ensure_loaded atomic init (temp vars, assign both only on success; except resets both to None); scrub count from anonymized.items (not analyzer results); _redactor type Any; _get_redactor below logger; presidio/spacy version pins (>=2.2.353, >=3.7.0).
 
 - **Series 3: The Sovereign Vault** – Local image analysis for forensic audit with strict data sovereignty:
   - `analyze_artifact_vision` MCP tool: uses sharp to resize images to 512×512, sends to local Ollama (llama3.2-vision:11b). Raw image and base64 cleared from memory after call. Returns only structured text.
