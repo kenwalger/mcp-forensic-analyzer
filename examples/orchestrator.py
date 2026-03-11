@@ -35,14 +35,19 @@ from datetime import datetime
 from typing import Any, Awaitable, Callable
 
 import yaml
+from dotenv import load_dotenv
 
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
 
 # Ensure examples/ is on sys.path for router import (robust when imported as module)
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+
+# Load .env from project root (shared with MCP server) so NOTION_*, OLLAMA_*, etc. are set
+load_dotenv(PROJECT_ROOT / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +57,6 @@ LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "120"))
 # -----------------------------------------------------------------------------
 # Paths: script lives in examples/, server in parent
 # -----------------------------------------------------------------------------
-PROJECT_ROOT = SCRIPT_DIR.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 PROMPTS_PATH = CONFIG_DIR / "prompts.yaml"
 PROMPTS_THE_JUDGE_PATH = CONFIG_DIR / "prompts_the_judge.yaml"
@@ -385,7 +389,10 @@ async def vision_agent(
     Sovereign Vault: processes only on local Ollama; never routed to cloud.
     Returns {visual_findings: str} or {error: True, message: str}.
     """
-    args: dict = {"image_path": image_path, "analysis_focus": analysis_focus}
+    args: dict = {
+        "image_path": image_path,
+        "analysis_focus": _sanitize_cli_for_prompt(analysis_focus, max_len=200),
+    }
     result = await session.call_tool("analyze_artifact_vision", arguments=args)
     text = extract_text_content(result)
 

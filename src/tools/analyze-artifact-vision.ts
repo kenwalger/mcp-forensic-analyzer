@@ -8,9 +8,9 @@
  */
 
 import sharp from "sharp";
-import { readFile } from "fs/promises";
+import { readFile, realpath } from "fs/promises";
 import { existsSync } from "fs";
-import { resolve, relative, isAbsolute } from "path";
+import { resolve, relative, isAbsolute, sep } from "path";
 
 export interface AnalyzeArtifactVisionInput {
   image_path: string;
@@ -22,7 +22,27 @@ export interface AnalyzeArtifactVisionResult {
   error?: string;
 }
 
-const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
+function assertLocalOllamaHost(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return url;
+    const octets = host.split(".").map(Number);
+    if (octets.length === 4 && !octets.some((n) => Number.isNaN(n))) {
+      if (octets[0] === 10) return url;
+      if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return url;
+      if (octets[0] === 192 && octets[1] === 168) return url;
+    }
+  } catch {
+    /* invalid URL */
+  }
+  throw new Error(
+    `OLLAMA_HOST must resolve to a local endpoint (localhost, 127.0.0.1, or private IP). Got: ${url}`
+  );
+}
+const OLLAMA_HOST = assertLocalOllamaHost(
+  process.env.OLLAMA_HOST ?? "http://localhost:11434"
+);
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? "llama3.2-vision:11b";
 const OLLAMA_TIMEOUT_MS = (() => {
   const raw = process.env.OLLAMA_VISION_TIMEOUT_MS?.trim() || "120000";
@@ -32,8 +52,19 @@ const OLLAMA_TIMEOUT_MS = (() => {
 const IMAGE_BASE = process.env.SOVEREIGN_VAULT_IMAGE_BASE ?? process.cwd();
 
 /**
+ * Sanitize analysis_focus for safe prompt embedding: strip control chars, newlines, limit length.
+ */
+function sanitizeAnalysisFocus(input: string): string {
+  return input
+    .replace(/[\0-\x1f\x7f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
+/**
  * Resize image to 512x512. Returns buffer; caller must zero it after use.
- * Rejects path traversal (e.g. ../../etc/passwd).
+ * Rejects path traversal and symlink escapes (uses realpath to dereference).
  */
 async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
   const base = resolve(IMAGE_BASE);
@@ -46,6 +77,16 @@ async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
   }
   if (!existsSync(resolved)) {
     throw new Error(`Image not found: ${imagePath}`);
+  }
+  const realBase = await realpath(base);
+  const realResolved = await realpath(resolved);
+  if (
+    realResolved !== realBase &&
+    !realResolved.startsWith(realBase + sep)
+  ) {
+    throw new Error(
+      `Path traversal not allowed: ${imagePath} resolves outside SOVEREIGN_VAULT_IMAGE_BASE (symlink escape).`
+    );
   }
   const buffer = await readFile(resolved);
   return sharp(buffer)
@@ -74,7 +115,8 @@ export async function executeAnalyzeArtifactVision(
   }
 
   const base64 = buffer.toString("base64");
-  const prompt = `Analyze this artifact image and describe your visual findings. Focus on: ${analysis_focus}. Provide a structured text description suitable for a forensic audit. Do not include image data.`;
+  const safeFocus = sanitizeAnalysisFocus(analysis_focus);
+  const prompt = `Analyze this artifact image and describe your visual findings. Focus on: ${safeFocus}. Provide a structured text description suitable for a forensic audit. Do not include image data.`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);

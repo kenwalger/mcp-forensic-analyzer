@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OLLAMA_VISION_TIMEOUT_MS empty string** – Guard against parseInt("", 10)=NaN; empty or invalid env now falls back to 120000ms.
 - **vision_agent error-as-findings** – When tool returns error, do not inject error message as visual_findings; keep vision_context empty.
 - **image_path schema description** – Mention SOVEREIGN_VAULT_IMAGE_BASE and path traversal; improve path-traversal error message.
+- **Symlink traversal bypass** – Use realpath to dereference symlinks; reject if canonical path escapes SOVEREIGN_VAULT_IMAGE_BASE.
+- **analysis_focus prompt injection** – Sanitize in TypeScript (strip control chars, limit 200 chars) and Python (_sanitize_cli_for_prompt).
+- **OLLAMA_HOST validation** – Reject non-local endpoints (localhost, 127.0.0.1, ::1, private IPs only); enforce data sovereignty.
 
 ### Added
 
