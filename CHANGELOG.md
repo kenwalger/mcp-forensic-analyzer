@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **vision_agent observability** – logger.error(f"Vision Agent failed to parse response: {text}").
 - **IPv6 private ranges** – assertLocalOllamaHost accepts fc00::/7, fe80::/10.
 - **Vision failure warning** – Log when proceeding without visual context; audit completes.
+- **OLLAMA_HOST fault tolerance** – Move assertLocalOllamaHost into tool handler; misconfigured host yields tool error instead of MCP server crash at startup.
+- **Privacy hardening (base64)** – Set base64 variable to null after fetch; buffer.fill(0) alone insufficient as string remains in JS heap. Hint GC for memory reclamation.
+- **sanitizeAnalysisFocus empty fallback** – Default to 'general' when input is only control chars or empty after sanitization; avoid empty prompt to Vision SLM.
+- **Guardian timeout comment** – Document that input() thread may orphan on asyncio.wait_for timeout; orchestrator's stdin_closed state handles gracefully.
 
 ### Added
 

@@ -501,7 +501,9 @@ async def _apply_guardian_handshake(
             answer = "no"
         else:
             try:
-                # 5min timeout per prompt to avoid indefinite MCP session hold (server timeout risk)
+                # 5min timeout per prompt to avoid indefinite MCP session hold (server timeout risk).
+                # Note: On timeout, the underlying input() thread may orphan; orchestrator's
+                # stdin_closed state ensures we skip further input() calls and proceed gracefully.
                 answer = await asyncio.wait_for(
                     asyncio.to_thread(
                         input, "  Do you authorize this forensic finding? (yes/no): "

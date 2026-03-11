@@ -46,9 +46,7 @@ function assertLocalOllamaHost(url: string): string {
     `OLLAMA_HOST must resolve to a local endpoint (localhost, 127.0.0.1, or private IP). Got: ${url}`
   );
 }
-const OLLAMA_HOST = assertLocalOllamaHost(
-  process.env.OLLAMA_HOST ?? "http://localhost:11434"
-);
+
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? "llama3.2-vision:11b";
 const OLLAMA_TIMEOUT_MS = (() => {
   const raw = process.env.OLLAMA_VISION_TIMEOUT_MS?.trim() || "120000";
@@ -59,13 +57,15 @@ const IMAGE_BASE = process.env.SOVEREIGN_VAULT_IMAGE_BASE ?? process.cwd();
 
 /**
  * Sanitize analysis_focus for safe prompt embedding: strip control chars, newlines, limit length.
+ * If empty after sanitization, default to 'general' to avoid sending empty prompt to Vision SLM.
  */
 function sanitizeAnalysisFocus(input: string): string {
-  return input
+  const sanitized = input
     .replace(/[\0-\x1f\x7f]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 200);
+  return sanitized || "general";
 }
 
 /**
@@ -106,6 +106,7 @@ async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
 
 /**
  * Call local Ollama vision model. Resized buffer is zeroed after call (Buffer.fill(0)).
+ * OLLAMA_HOST validated at call time (tool error, not server crash).
  */
 export async function executeAnalyzeArtifactVision(
   args: AnalyzeArtifactVisionInput
@@ -115,6 +116,10 @@ export async function executeAnalyzeArtifactVision(
     throw new Error("image_path and analysis_focus are required and must be non-empty");
   }
 
+  const ollamaHost = assertLocalOllamaHost(
+    process.env.OLLAMA_HOST ?? "http://localhost:11434"
+  );
+
   let buffer: Buffer;
   try {
     buffer = await loadAndResizeImage(image_path);
@@ -123,7 +128,7 @@ export async function executeAnalyzeArtifactVision(
     return { visual_findings: "", error: `Image load failed: ${msg}` };
   }
 
-  const base64 = buffer.toString("base64");
+  let base64: string | null = buffer.toString("base64");
   const safeFocus = sanitizeAnalysisFocus(analysis_focus);
   const prompt = `Analyze this artifact image and describe your visual findings. Focus on: ${safeFocus}. Provide a structured text description suitable for a forensic audit. Do not include image data.`;
 
@@ -131,7 +136,7 @@ export async function executeAnalyzeArtifactVision(
   const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
 
   try {
-    const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
+    const res = await fetch(`${ollamaHost}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -169,7 +174,7 @@ export async function executeAnalyzeArtifactVision(
     throw e;
   } finally {
     clearTimeout(timeoutId);
-    // Privacy Guard: zero the resized image buffer (JS strings cannot be cleared)
+    base64 = null;
     buffer.fill(0);
   }
 }
