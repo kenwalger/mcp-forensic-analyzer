@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.0] - 2026-03-10
 
+### Fixed
+
+- **Path traversal in analyze_artifact_vision** – Reject paths like ../../etc/passwd; resolve against SOVEREIGN_VAULT_IMAGE_BASE (default cwd) and ensure result stays within base.
+- **Privacy guard in analyze_artifact_vision** – Zero resized buffer with Buffer.fill(0) after API call; removed false "cleared from memory" claim (JS strings are immutable).
+- **Ollama fetch timeout** – AbortSignal with OLLAMA_VISION_TIMEOUT_MS (default 120s); prevents indefinite hang on slow model load.
+- **audit vision_context pass-through** – Remove redundant ?? undefined; add comment clarifying Sovereign Vault visual analysis pass-through.
+
 ### Added
 
 - **Series 3: The Sovereign Vault** – Local image analysis for forensic audit with strict data sovereignty:

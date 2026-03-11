@@ -2,15 +2,15 @@
  * analyze_artifact_vision — Sovereign Vault: Local image analysis for forensic audit.
  *
  * STRICT DATA SOVEREIGNTY: Processes images locally only. Uses sharp for resizing,
- * sends to local Ollama (llama3.2-vision:11b). Raw image and base64 are cleared
- * from memory immediately after the call. Returns only structured text; no image
- * data is retained or transmitted off-host.
+ * sends to local Ollama (llama3.2-vision:11b). Resized image buffer is zeroed
+ * after the API call (Buffer.fill(0)); JavaScript strings cannot be cleared.
+ * Returns only structured text; no image data retained or transmitted off-host.
  */
 
 import sharp from "sharp";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { join } from "path";
+import { resolve, relative, isAbsolute } from "path";
 
 export interface AnalyzeArtifactVisionInput {
   image_path: string;
@@ -24,25 +24,35 @@ export interface AnalyzeArtifactVisionResult {
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? "llama3.2-vision:11b";
+const OLLAMA_TIMEOUT_MS = parseInt(
+  process.env.OLLAMA_VISION_TIMEOUT_MS ?? "120000",
+  10
+);
+const IMAGE_BASE = process.env.SOVEREIGN_VAULT_IMAGE_BASE ?? process.cwd();
 
 /**
- * Resize image to 512x512 and convert to base64. Uses sharp for local processing.
+ * Resize image to 512x512. Returns buffer; caller must zero it after use.
+ * Rejects path traversal (e.g. ../../etc/passwd).
  */
-async function imageToBase64(imagePath: string): Promise<string> {
-  const resolved = imagePath.startsWith("/") ? imagePath : join(process.cwd(), imagePath);
+async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
+  const base = resolve(IMAGE_BASE);
+  const resolved = resolve(base, imagePath);
+  const rel = relative(base, resolved);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error(`Path traversal not allowed: ${imagePath}`);
+  }
   if (!existsSync(resolved)) {
     throw new Error(`Image not found: ${imagePath}`);
   }
   const buffer = await readFile(resolved);
-  const resized = await sharp(buffer)
+  return sharp(buffer)
     .resize(512, 512, { fit: "inside" })
     .jpeg({ quality: 85 })
     .toBuffer();
-  return resized.toString("base64");
 }
 
 /**
- * Call local Ollama vision model. Raw image and base64 are cleared after call.
+ * Call local Ollama vision model. Resized buffer is zeroed after call (Buffer.fill(0)).
  */
 export async function executeAnalyzeArtifactVision(
   args: AnalyzeArtifactVisionInput
@@ -52,15 +62,19 @@ export async function executeAnalyzeArtifactVision(
     throw new Error("image_path and analysis_focus are required and must be non-empty");
   }
 
-  let base64: string;
+  let buffer: Buffer;
   try {
-    base64 = await imageToBase64(image_path);
+    buffer = await loadAndResizeImage(image_path);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { visual_findings: "", error: `Image load failed: ${msg}` };
   }
 
+  const base64 = buffer.toString("base64");
   const prompt = `Analyze this artifact image and describe your visual findings. Focus on: ${analysis_focus}. Provide a structured text description suitable for a forensic audit. Do not include image data.`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
 
   try {
     const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
@@ -77,7 +91,10 @@ export async function executeAnalyzeArtifactVision(
         ],
         stream: false,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       const text = await res.text();
@@ -90,8 +107,17 @@ export async function executeAnalyzeArtifactVision(
     const data = (await res.json()) as { message?: { content?: string } };
     const text = data?.message?.content?.trim() ?? "";
     return { visual_findings: text };
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e instanceof Error && e.name === "AbortError") {
+      return {
+        visual_findings: "",
+        error: `Ollama vision call timed out after ${OLLAMA_TIMEOUT_MS}ms`,
+      };
+    }
+    throw e;
   } finally {
-    // Privacy Guard: clear base64 from memory (best-effort; JS GC handles the rest)
-    (base64 as unknown) = "";
+    // Privacy Guard: zero the resized image buffer (JS strings cannot be cleared)
+    buffer.fill(0);
   }
 }

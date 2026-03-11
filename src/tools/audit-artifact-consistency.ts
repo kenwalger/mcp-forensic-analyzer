@@ -159,6 +159,7 @@ export async function executeAuditArtifactConsistency(
     market_context:
       args.market_context ??
       "(No market context provided)",
-    visual_findings: args.vision_context ?? undefined,
+    // Pass through Sovereign Vault visual analysis from VisionAgent
+    visual_findings: args.vision_context,
   };
 }
