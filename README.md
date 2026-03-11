@@ -14,6 +14,13 @@ We move beyond 'vibe-checking' agents by implementing an **LLM-as-a-Judge** fram
 - **Automated Evaluation:** Every architectural change is audited by a high-reasoning 'Judge Agent' to ensure zero regression in forensic accuracy.
 - **Structured Logging:** All provider errors and reasoning chains are captured for post-mortem analysis, moving away from silent failures.
 
+## 🛡️ Human-in-the-Loop (The Guardian)
+The orchestrator implements **Governance** for high-stakes findings:
+- **Trigger:** When the Analyst identifies a HIGH severity discrepancy, the report is not finalized immediately.
+- **Handshake:** The user is prompted: *Do you authorize this forensic finding? (yes/no)*.
+- **Governance:** If *yes*, the finding is finalized. If *no*, it is flagged `DISPUTED_BY_HUMAN` and moved to "Requires Further Investigation".
+- Use `--no-guardian` to skip for CI or non-interactive runs (e.g. evaluator).
+
 ## 💰 Cognitive Budgeting (The Accountant)
 To manage enterprise scale, we implement **Semantic Routing**:
 - **Tiered Intelligence:** Requests are classified by complexity. Simple tasks are routed to local SLMs (Phi-4/Llama 3.2), while complex forensic tasks are escalated to Claude 3.5.

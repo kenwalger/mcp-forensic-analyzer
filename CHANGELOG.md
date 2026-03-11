@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.14] - 2026-03-10
+
+### Fixed
+
+- **Guardian input timeout** – 5min timeout per prompt to avoid indefinite MCP session hold; on timeout, treat as disputed and skip remaining prompts. Reduces risk of silent connection drop.
+- **request_human_signature stub semantics** – Return value now includes "NOT AUTHORIZED"; description and schema emphasize the stub does not grant approval. Add Zod .min(1) for finding_summary and severity.
+- **Guardian confidence formula comment** – Clarify that High/Low match audit-artifact-consistency.ts; Medium/other are Python extensions for future-proofing (TS does not emit them today).
+- **Guardian raw field replacement** – Document that analyst_result["raw"] is intentionally replaced with post-dispute serialization so LLM synthesis receives current confirmed findings; disputed items are passed separately.
+- **Guardian system prompt never applied** – Inject guardian.system_prefix into LLM synthesis when guardian_enabled; governance framing was previously loaded but not used.
+- **request_human_signature empty inputs** – Validate finding_summary and severity are non-empty; reject blank invocations with clear error.
+- **Guardian response branching** – Replace double-negative with explicit three-branch (yes/y → authorize; no/n → dispute; other → warn and dispute) for maintainability.
+- **Guardian null discrepancies crash** – Use `data.get("discrepancies") or []` to guard against `{"discrepancies": null}` from the analyst; prevents TypeError in list comprehensions.
+- **Guardian unrecognized input** – Warn when user enters empty or unrecognized response before treating as disputed; avoids silent dispute on accidental Enter.
+- **request_human_signature try/catch** – Add error handling to tool handler in src/index.ts for consistency with update_book_status and create_audit_log.
+- **Guardian "y" acceptance** – Authorization prompt now accepts both "yes" and "y" for approval; previously only "yes" was accepted, causing accidental disputes when users typed the common short-form.
+- **update_book_status logic gap** – Step 6 in FORENSIC_WORKFLOW_INSTRUCTIONS now conditions update_book_status on human authorization (step 3 approval); do not flag disputed findings in Notion. Prevents agents from flagging books when the human explicitly rejected the HIGH finding.
+- **Confidence recalculation ignores MEDIUM/other** – Post-dispute confidence now includes penalty for MEDIUM (20) and unknown severities (10); High=45, Low=5 unchanged. Prevents inflated scores when non-HIGH/LOW discrepancies remain.
+- **Blocking input() in Guardian handshake** – Use `asyncio.to_thread(input, ...)` so the async event loop is not blocked during human authorization prompts.
+- **Prompt injection in disputed findings** – Disputed block passed through `_sanitize_tool_output_for_llm()` before LLM synthesis, consistent with Librarian/Analyst sanitization.
+- **Stale consistency after disputes** – `is_consistent` and `confidence_score` are recalculated from remaining discrepancies after disputes are removed (avoids "Consistency: FAIL / Discrepancies: None").
+
+## [0.13.13] - 2026-03-10
+
+### Fixed
+
+- **Repeated EOFError in Guardian handshake** – On stdin close, log warning once and treat all remaining HIGH findings as disputed without further `input()` calls (avoids repeated EOFError in non-interactive mode).
+- **Disputed key filter collision** – Include severity in `disputed_keys` so only the exact disputed HIGH findings are removed; low-severity discrepancies with the same (field, expected, observed) are no longer accidentally dropped.
+
+### Changed
+
+- **request_human_signature tool description** – Clarify that the tool is a reference stub; the actual interactive authorization gate lives in the Python orchestrator. Reduces confusion when the MCP server is used directly without the orchestrator.
+
+## [0.13.12] - 2026-03-10
+
+### Fixed
+
+- **Disputed findings in LLM synthesis** – Disputed findings are now included in the tool output block sent to the LLM when synthesis succeeds; previously they were silently dropped.
+- **request_human_signature severity** – Return string now includes severity: `PENDING_HUMAN_REVIEW: [severity] [summary]`.
+- **EOFError auto-dispute** – Log warning when stdin is closed and HIGH findings are auto-disputed; prompts use of `--no-guardian` for CI.
+
+### Added
+
+- **router.py --no-guardian** – Standalone router CLI can disable guardian for non-interactive runs.
+
+## [0.13.11] - 2026-03-10
+
+### Added
+
+- **The Guardian (Human-in-the-Loop Governance)** – Production-grade governance layer:
+  - `src/tools/request-human-signature.ts`: New MCP tool accepting `finding_summary` and `severity`; returns `PENDING_HUMAN_REVIEW: [summary]`.
+  - `config/prompts.yaml`: New `guardian` section; agent is a Co-Pilot and must seek authorization for high-stakes accusations.
+  - `orchestrator.py`: When Analyst identifies HIGH severity discrepancies, orchestrator prompts user: "Do you authorize this forensic finding? (yes/no)". If no, findings are flagged `DISPUTED_BY_HUMAN` and moved to "Requires Further Investigation" section.
+  - `--no-guardian`: Skip human-in-the-loop for CI/non-interactive use (evaluator passes `guardian_enabled=False`).
+  - `FORENSIC_WORKFLOW_INSTRUCTIONS`: Step 3 added for `request_human_signature`.
+
 ## [0.13.10] - 2026-03-10
 
 ### Added

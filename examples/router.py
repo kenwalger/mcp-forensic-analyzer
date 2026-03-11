@@ -100,6 +100,7 @@ async def run_with_accountant(
     book_standard: dict | None = None,
     *,
     emit_decision: bool = True,
+    guardian_enabled: bool = True,
 ) -> str:
     """
     Classify the query, optionally log the cost decision, and run the forensic audit
@@ -121,6 +122,7 @@ async def run_with_accountant(
         title, author, observed,
         provider=provider,
         book_standard=book_standard,
+        guardian_enabled=guardian_enabled,
     )
 
 
@@ -163,6 +165,11 @@ def main() -> None:
         default=None,
         help="Observed publication year",
     )
+    parser.add_argument(
+        "--no-guardian",
+        action="store_true",
+        help="Skip human-in-the-loop authorization for HIGH findings (for CI/non-interactive).",
+    )
     args = parser.parse_args()
 
     observed = None
@@ -183,7 +190,10 @@ def main() -> None:
         }
 
     report = asyncio.run(
-        run_with_accountant(args.query, args.title, args.author, observed)
+        run_with_accountant(
+            args.query, args.title, args.author, observed,
+            guardian_enabled=not args.no_guardian,
+        )
     )
     print(report)
 

@@ -82,6 +82,7 @@ def _load_prompts() -> dict[str, Any]:
         "local_slm_system_prefix": (data.get("local_slm_system_prefix") or "").strip(),
         "supervisor_system": (data.get("supervisor_system") or "").strip(),
         "accountant": data.get("accountant") or {},
+        "guardian": data.get("guardian") or {},
     }
     if PROMPTS_THE_JUDGE_PATH.exists():
         with open(PROMPTS_THE_JUDGE_PATH, encoding="utf-8") as f:
@@ -422,11 +423,117 @@ async def analyst_agent(
         return {"error": False, "data": None, "raw": text}
 
 
+async def _apply_guardian_handshake(
+    analyst_result: dict,
+) -> tuple[dict, list[dict]]:
+    """
+    Human-in-the-Loop: if Analyst has HIGH discrepancies, prompt for authorization.
+    Uses asyncio.to_thread for input() to avoid blocking the event loop.
+    Returns (modified_analyst_result, disputed_discrepancies).
+    disputed_discrepancies are moved to "Requires Further Investigation".
+    """
+    disputed: list[dict] = []
+    data = analyst_result.get("data") or {}
+    disc = data.get("discrepancies") or []  # guard against {"discrepancies": null}
+    high_disc = [d for d in disc if (d.get("severity") or "").upper() == "HIGH"]
+    if not high_disc:
+        return analyst_result, disputed
+
+    disputed_keys: set[tuple[str, str, str, str]] = set()
+    stdin_closed = False
+    for d in high_disc:
+        summary = (
+            f"[{d.get('severity', '?')}] {d.get('field', '')}: "
+            f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'"
+        )
+        print(f"\n  Guardian: HIGH severity finding — {summary}")
+        if stdin_closed:
+            answer = "no"
+        else:
+            try:
+                # 5min timeout per prompt to avoid indefinite MCP session hold (server timeout risk)
+                answer = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        input, "  Do you authorize this forensic finding? (yes/no): "
+                    ),
+                    timeout=300,
+                )
+                answer = answer.strip().lower()
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Guardian: input timeout (300s); treating as 'no' and disputing. "
+                    "Use --no-guardian for CI."
+                )
+                stdin_closed = True
+                answer = "no"
+            except EOFError:
+                logger.warning(
+                    "Guardian: stdin closed (non-interactive); treating as 'no' and "
+                    "disputing all HIGH findings. Use --no-guardian for CI."
+                )
+                stdin_closed = True
+                answer = "no"
+        if answer in ("yes", "y"):
+            pass  # authorized
+        elif answer in ("no", "n"):
+            disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
+            disputed_keys.add((
+                d.get("field", ""),
+                d.get("expected", ""),
+                d.get("observed", ""),
+                (d.get("severity") or "").upper(),
+            ))
+        else:
+            print("  Guardian: Unrecognized response; treating as 'no' (disputed).")
+            disputed.append({**d, "status": "DISPUTED_BY_HUMAN"})
+            disputed_keys.add((
+                d.get("field", ""),
+                d.get("expected", ""),
+                d.get("observed", ""),
+                (d.get("severity") or "").upper(),
+            ))
+
+    if disputed:
+        new_disc = [
+            d for d in disc
+            if (d.get("field", ""), d.get("expected", ""), d.get("observed", ""), (d.get("severity") or "").upper()) not in disputed_keys
+        ]
+        # Match audit-artifact-consistency.ts for High=45, Low=5. Extend with Medium=20, other=10
+        # (TS does not emit these today; Python tiers avoid inflated scores if extended later).
+        penalty = 0
+        for item in new_disc:
+            s = (item.get("severity") or "").upper()
+            if s == "HIGH":
+                penalty += 45
+            elif s == "MEDIUM":
+                penalty += 20
+            elif s == "LOW":
+                penalty += 5
+            else:
+                penalty += 10  # unknown severity: moderate penalty
+        confidence = max(0, 100 - penalty)
+        data = {
+            **data,
+            "discrepancies": new_disc,
+            "is_consistent": len(new_disc) == 0,
+            "confidence_score": confidence,
+        }
+        # Replace raw with post-dispute serialization so LLM synthesis receives current confirmed
+        # findings; disputed items are passed separately in tool_parts.
+        analyst_result = {
+            **analyst_result,
+            "data": data,
+            "raw": json.dumps(data),
+        }
+    return analyst_result, disputed
+
+
 def build_forensic_report(
     title: str,
     author: str | None,
     librarian_result: dict,
     analyst_result: dict,
+    disputed_discrepancies: list[dict] | None = None,
 ) -> str:
     """Supervisor: Combine Librarian and Analyst findings into a Forensic Report."""
     lines = [
@@ -477,6 +584,7 @@ def build_forensic_report(
         lines.append(f"  Confidence: {confidence}%")
 
         disc = data.get("discrepancies", [])
+        disputed = disputed_discrepancies or []
         if disc:
             lines.append("  Discrepancies:")
             for d in disc:
@@ -484,6 +592,17 @@ def build_forensic_report(
                             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
         else:
             lines.append("  Discrepancies: None")
+
+        if disputed:
+            lines.extend([
+                "",
+                "───────────────────────────────────────────────────────────────",
+                "  REQUIRES FURTHER INVESTIGATION (Disputed by Human)",
+                "───────────────────────────────────────────────────────────────",
+            ])
+            for d in disputed:
+                lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
+                            f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
 
     lines.extend([
         "",
@@ -501,6 +620,7 @@ async def run_forensic_audit(
     observed: dict | None,
     provider: str | None = None,
     book_standard: dict | None = None,
+    guardian_enabled: bool = True,
 ) -> str:
     """
     Main orchestration: connect to MCP server, run Librarian → Analyst → Report.
@@ -508,6 +628,8 @@ async def run_forensic_audit(
     synthesize the report; otherwise uses deterministic build_forensic_report().
     When book_standard is provided (e.g. from golden dataset), uses it directly
     instead of librarian/sample, ensuring deterministic evaluation.
+    When guardian_enabled=True (default), HIGH severity discrepancies trigger
+    a human-in-the-loop authorization prompt before finalizing.
     """
     server_params = get_server_params()
 
@@ -564,12 +686,21 @@ async def run_forensic_audit(
                 session, book_page_id, book_standard, observed
             )
 
+            # 2b. Guardian: human-in-the-loop for HIGH severity findings
+            disputed: list[dict] = []
+            if guardian_enabled:
+                analyst_result, disputed = await _apply_guardian_handshake(analyst_result)
+
             # 3. Supervisor: combine and output Forensic Report
             if provider and provider != "none":
                 try:
                     async with get_model_client(provider) as complete:
                         prompts = _get_prompts()
                         system = prompts["supervisor_system"]
+                        if guardian_enabled:
+                            guardian_prefix = (prompts.get("guardian") or {}).get("system_prefix") or ""
+                            if guardian_prefix.strip():
+                                system = guardian_prefix.strip() + "\n\n" + system
                         librarian_safe = _sanitize_tool_output_for_llm(
                             librarian_result.get("raw", "")
                         )
@@ -592,6 +723,12 @@ async def run_forensic_audit(
                             )
                             tool_parts.append(f"Audit framing:\n{framed}")
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
+                        if disputed:
+                            disputed_raw = json.dumps(disputed)
+                            disputed_safe = _sanitize_tool_output_for_llm(disputed_raw)
+                            tool_parts.append(
+                                f"Requires Further Investigation (Disputed by Human):\n{disputed_safe}"
+                            )
                         tool_block = "\n\n".join(tool_parts)
                         user = (
                             f"Title: {_sanitize_cli_for_prompt(title)}\n"
@@ -611,9 +748,15 @@ async def run_forensic_audit(
                     )
                     return (
                         f"[LLM synthesis failed: {e}]\n\n"
-                        + build_forensic_report(title, author, librarian_result, analyst_result)
+                        + build_forensic_report(
+                            title, author, librarian_result, analyst_result,
+                            disputed_discrepancies=disputed,
+                        )
                     )
-            return build_forensic_report(title, author, librarian_result, analyst_result)
+            return build_forensic_report(
+                title, author, librarian_result, analyst_result,
+                disputed_discrepancies=disputed,
+            )
 
 
 def main() -> None:
@@ -667,6 +810,11 @@ def main() -> None:
         default=None,
         help="Observed publication year (for audit)",
     )
+    parser.add_argument(
+        "--no-guardian",
+        action="store_true",
+        help="Skip human-in-the-loop authorization for HIGH findings (for CI/non-interactive use).",
+    )
 
     args = parser.parse_args()
 
@@ -706,13 +854,17 @@ def main() -> None:
             )
         from router import run_with_accountant
         report = asyncio.run(
-            run_with_accountant(args.query, args.title, args.author, observed)
+            run_with_accountant(
+                args.query, args.title, args.author, observed,
+                guardian_enabled=not args.no_guardian,
+            )
         )
     else:
         report = asyncio.run(
             run_forensic_audit(
                 args.title, args.author, observed,
                 provider=args.provider if args.provider != "none" else None,
+                guardian_enabled=not args.no_guardian,
             )
         )
     print(report)
