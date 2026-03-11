@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Vision error surfacing** – Add vision_error_message to build_forensic_report; include 'Vision analysis failed' in Supervisor tool_block; surface in deterministic report.
 - **Model routing** – Provider-specific env vars (ANTHROPIC_MODEL, OLLAMA_MODEL, OPENAI_MODEL); prevent OLLAMA_MODEL from affecting --provider anthropic.
 - **Anthropic model ID** – Default to claude-3-5-sonnet-latest (deprecated 20241022); ANTHROPIC_MODEL in .env overrides.
+- **Vision timeout** – Default OLLAMA_VISION_TIMEOUT_MS 120s -> 300s (5 min) for slow CPU inference.
+- **Local Vision error handling** – When tool returns error field (e.g. timeout), log CRITICAL and print to stderr: 'Local Vision failed: [message]'.
+- **Vision bridge** – extract_text_content fallbacks for dict/attr text; DEBUG print; Redactor returns original text when engines not loaded; warn when passing unredacted.
 
 ### Added
 
@@ -60,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Redactor hardening:** OperatorConfig replace with \<REDACTED\>; _ensure_loaded catches ImportError and OSError (missing spaCy model); scrub wrapped in try/except so runtime failure falls back to unredacted; _get_redactor eagerly checks presidio imports, logs 'PII Redactor disabled' on fail; requirements presidio/spacy in Optional section.
   - **Redactor logic nits:** _ensure_loaded atomic init (temp vars, assign both only on success; except resets both to None); scrub count from anonymized.items (not analyzer results); _redactor type Any; _get_redactor below logger; presidio/spacy version pins (>=2.2.353, >=3.7.0).
   - **Error Storm fix:** _load_failed flag; _ensure_loaded returns immediately (raises) when load previously failed, avoiding repeated expensive load attempts; differentiated logging (SovereignRedactor module vs Presidio/spaCy deps).
+  - **Silent Failure fix:** logger split into two lines so variable holds logger object (not None); _load_failed set before any logging in except blocks; _disable_redactor() on scrub failure so broken redactor never retried; sentinel check ensures session-wide disable.
 
 - **Series 3: The Sovereign Vault** – Local image analysis for forensic audit with strict data sovereignty:
   - `analyze_artifact_vision` MCP tool: uses sharp to resize images to 512×512, sends to local Ollama (llama3.2-vision:11b). Raw image and base64 cleared from memory after call. Returns only structured text.

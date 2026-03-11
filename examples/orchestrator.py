@@ -56,6 +56,12 @@ _redactor: Any = None  # SovereignRedactor | None | _REDACTOR_DISABLED
 logger = logging.getLogger(__name__)
 
 
+def _disable_redactor() -> None:
+    """Mark redactor as permanently disabled after runtime failure."""
+    global _redactor
+    _redactor = _REDACTOR_DISABLED
+
+
 def _get_redactor() -> Any:  # Returns SovereignRedactor | None
     """Lazy-init SovereignRedactor. Returns None if presidio/spacy not installed."""
     global _redactor
@@ -388,6 +394,10 @@ def extract_text_content(result) -> str:
     for block in result.content:
         if isinstance(block, types.TextContent):
             parts.append(block.text)
+        elif isinstance(block, dict) and "text" in block:
+            parts.append(block["text"])
+        elif hasattr(block, "text"):
+            parts.append(block.text)
     return "\n".join(parts)
 
 
@@ -455,14 +465,24 @@ async def vision_agent(
     }
     result = await session.call_tool("analyze_artifact_vision", arguments=args)
     text = extract_text_content(result)
+    print(f"DEBUG: Raw Vision Output: {text[:100]}{'...' if len(text) > 100 else ''}")
 
     if result.isError:
         return {"error": True, "message": text, "raw": text, "visual_findings": ""}
 
     try:
         data = json.loads(text)
-        # Use visual_findings only when tool succeeded; never inject error messages
-        vf = "" if data.get("error") else (data.get("visual_findings", "") or "")
+        if data.get("error"):
+            err_msg = data.get("error") if isinstance(data.get("error"), str) else str(data.get("error", "Unknown error"))
+            logger.critical("Local Vision failed: %s", err_msg)
+            print(f"Local Vision failed: {err_msg}", file=sys.stderr)
+            return {
+                "error": True,
+                "message": err_msg,
+                "raw": text,
+                "visual_findings": "",
+            }
+        vf = data.get("visual_findings", "") or ""
         return {
             "error": False,
             "data": data,
@@ -899,9 +919,14 @@ async def run_forensic_audit(
                                                 n,
                                             )
                                     except Exception:
+                                        _disable_redactor()
                                         logger.warning(
                                             "PII Redactor failed during scrub; using unredacted vision findings."
                                         )
+                                else:
+                                    logger.warning(
+                                        "PII Redactor disabled; passing unredacted vision findings to cloud."
+                                    )
                             vision_safe = _sanitize_tool_output_for_llm(vision_for_egress, plain_text=True)
                             tool_parts.append(
                                 f"Vision Findings (Sovereign Vault — Local Analysis):\n{vision_safe}"

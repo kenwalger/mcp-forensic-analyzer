@@ -11,7 +11,8 @@ Local output (terminal, build_forensic_report) remains unredacted.
 
 import logging
 
-logger = logging.getLogger(__name__).setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
 
 # Entity types to redact before cloud egress (presidio supported entities)
 _REDACT_ENTITIES = ["PERSON", "LOCATION", "ORGANIZATION"]
@@ -30,7 +31,7 @@ class SovereignRedactor:
 
     def _ensure_loaded(self) -> None:
         if self._load_failed:
-            raise RuntimeError("Redactor load previously failed; skipping retry.")
+            return
         if self._analyzer is not None:
             return
         try:
@@ -75,7 +76,12 @@ class SovereignRedactor:
         if not text or not text.strip():
             return text, 0
 
+        if self._load_failed:
+            return text, 0
+
         self._ensure_loaded()
+        if self._analyzer is None or self._anonymizer is None:
+            return text, 0
 
         results = self._analyzer.analyze(
             text=text,
