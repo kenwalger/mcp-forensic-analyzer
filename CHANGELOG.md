@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Symlink traversal bypass** – Use realpath to dereference symlinks; reject if canonical path escapes SOVEREIGN_VAULT_IMAGE_BASE.
 - **analysis_focus prompt injection** – Sanitize in TypeScript (strip control chars, limit 200 chars) and Python (_sanitize_cli_for_prompt).
 - **OLLAMA_HOST validation** – Reject non-local endpoints (localhost, 127.0.0.1, ::1, private IPs only); enforce data sovereignty.
+- **TOCTOU symlink race** – Read from realResolved (verified canonical path) instead of resolved; prevents symlink swap between check and read.
+- **existsSync in async** – Remove; use realpath (throws if missing) for existence check.
+- **OLLAMA_HOST octet bounds** – Validate each IP octet is 0–255; reject e.g. 10.999.0.1.
 
 ### Added
 

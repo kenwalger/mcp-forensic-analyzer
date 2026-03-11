@@ -9,7 +9,6 @@
 
 import sharp from "sharp";
 import { readFile, realpath } from "fs/promises";
-import { existsSync } from "fs";
 import { resolve, relative, isAbsolute, sep } from "path";
 
 export interface AnalyzeArtifactVisionInput {
@@ -28,7 +27,10 @@ function assertLocalOllamaHost(url: string): string {
     const host = u.hostname.toLowerCase();
     if (host === "localhost" || host === "127.0.0.1" || host === "::1") return url;
     const octets = host.split(".").map(Number);
-    if (octets.length === 4 && !octets.some((n) => Number.isNaN(n))) {
+    if (
+      octets.length === 4 &&
+      octets.every((n) => !Number.isNaN(n) && n >= 0 && n <= 255)
+    ) {
       if (octets[0] === 10) return url;
       if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return url;
       if (octets[0] === 192 && octets[1] === 168) return url;
@@ -75,11 +77,13 @@ async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
       `Path traversal not allowed: ${imagePath}. Paths are resolved relative to SOVEREIGN_VAULT_IMAGE_BASE (default: cwd).`
     );
   }
-  if (!existsSync(resolved)) {
+  const realBase = await realpath(base);
+  let realResolved: string;
+  try {
+    realResolved = await realpath(resolved);
+  } catch {
     throw new Error(`Image not found: ${imagePath}`);
   }
-  const realBase = await realpath(base);
-  const realResolved = await realpath(resolved);
   if (
     realResolved !== realBase &&
     !realResolved.startsWith(realBase + sep)
@@ -88,7 +92,8 @@ async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
       `Path traversal not allowed: ${imagePath} resolves outside SOVEREIGN_VAULT_IMAGE_BASE (symlink escape).`
     );
   }
-  const buffer = await readFile(resolved);
+  // Read from realResolved (verified canonical path) to prevent TOCTOU symlink swap
+  const buffer = await readFile(realResolved);
   return sharp(buffer)
     .resize(512, 512, { fit: "inside" })
     .jpeg({ quality: 85 })
