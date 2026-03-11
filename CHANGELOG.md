@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Guardian timeout comment** – Document that input() thread may orphan on asyncio.wait_for timeout; orchestrator's stdin_closed state handles gracefully.
 - **assertLocalOllamaHost IPv6 normalization** – Strip brackets from hostname ([::1] -> ::1) before safety checks; Node.js URL.hostname includes brackets for IPv6 addresses.
 - **base64 GC hint** – Set base64 to null immediately after fetch completes (in addition to finally); drop reference as soon as request body is consumed.
+- **OLLAMA_HOST allow 0.0.0.0** – Explicitly allow 0.0.0.0 as valid local host in assertLocalOllamaHost.
+- **OLLAMA_VISION_MODEL sync** – .env.example matches TypeScript default (llama3.2-vision:11b).
+- **vision_agent parse failure logging** – Truncate to 100 chars to avoid persisting sensitive forensic data in logs.
+- **sanitizeAnalysisFocus prompt hardening** – Restrict to alphanumeric and basic punctuation only; limit 50 chars.
+- **Vision findings in Supervisor context** – Explicitly include Vision Findings in tool_block sent to Supervisor LLM.
 
 ### Added
 

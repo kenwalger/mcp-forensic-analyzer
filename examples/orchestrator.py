@@ -410,7 +410,7 @@ async def vision_agent(
             "visual_findings": vf,
         }
     except json.JSONDecodeError:
-        logger.error(f"Vision Agent failed to parse response: {text}")
+        logger.error(f"Vision Agent parse failure: {text[:100]}{'...' if len(text) > 100 else ''}")
         return {"error": False, "data": None, "raw": text, "visual_findings": ""}
 
 
@@ -586,6 +586,7 @@ def build_forensic_report(
     librarian_result: dict,
     analyst_result: dict,
     disputed_discrepancies: list[dict] | None = None,
+    vision_context: str | None = None,
 ) -> str:
     """Supervisor: Combine Librarian and Analyst findings into a Forensic Report."""
     lines = [
@@ -656,16 +657,16 @@ def build_forensic_report(
                 lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
                             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
 
-        vf = data.get("visual_findings")
-        if vf:
-            lines.extend([
-                "",
-                "───────────────────────────────────────────────────────────────",
-                "  VISION FINDINGS (Sovereign Vault — Local Analysis)",
-                "───────────────────────────────────────────────────────────────",
-                "",
-                f"  {vf}",
-            ])
+    vf = ((analyst_result.get("data") or {}).get("visual_findings") or vision_context or "").strip()
+    if vf:
+        lines.extend([
+            "",
+            "───────────────────────────────────────────────────────────────",
+            "  VISION FINDINGS (Sovereign Vault — Local Analysis)",
+            "───────────────────────────────────────────────────────────────",
+            "",
+            f"  {vf}",
+        ])
 
     lines.extend([
         "",
@@ -809,6 +810,11 @@ async def run_forensic_audit(
                             )
                             tool_parts.append(f"Audit framing:\n{framed}")
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
+                        if vision_context and vision_context.strip():
+                            vision_safe = _sanitize_tool_output_for_llm(vision_context)
+                            tool_parts.append(
+                                f"Vision Findings (Sovereign Vault — Local Analysis):\n{vision_safe}"
+                            )
                         if disputed:
                             disputed_raw = json.dumps(disputed)
                             disputed_safe = _sanitize_tool_output_for_llm(disputed_raw)
@@ -837,11 +843,13 @@ async def run_forensic_audit(
                         + build_forensic_report(
                             title, author, librarian_result, analyst_result,
                             disputed_discrepancies=disputed,
+                            vision_context=vision_context,
                         )
                     )
             return build_forensic_report(
                 title, author, librarian_result, analyst_result,
                 disputed_discrepancies=disputed,
+                vision_context=vision_context,
             )
 
 

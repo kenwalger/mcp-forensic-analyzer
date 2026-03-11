@@ -25,7 +25,8 @@ function assertLocalOllamaHost(url: string): string {
   try {
     const u = new URL(url);
     const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return url;
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0")
+      return url;
     // IPv6: fc00::/7 (unique local), fe80::/10 (link-local)
     if (host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/.test(host)) {
       return url;
@@ -56,15 +57,15 @@ const OLLAMA_TIMEOUT_MS = (() => {
 const IMAGE_BASE = process.env.SOVEREIGN_VAULT_IMAGE_BASE ?? process.cwd();
 
 /**
- * Sanitize analysis_focus for safe prompt embedding: strip control chars, newlines, limit length.
- * If empty after sanitization, default to 'general' to avoid sending empty prompt to Vision SLM.
+ * Sanitize analysis_focus for safe prompt embedding: only alphanumeric and basic punctuation.
+ * Limit 50 chars. Default to 'general' if empty after sanitization.
  */
 function sanitizeAnalysisFocus(input: string): string {
   const sanitized = input
-    .replace(/[\0-\x1f\x7f]/g, "")
+    .replace(/[^a-zA-Z0-9\s.,;:'"-]/g, "")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 200);
+    .slice(0, 50);
   return sanitized || "general";
 }
 
