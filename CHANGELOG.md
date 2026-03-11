@@ -42,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **vision_agent parse failure logging** – Truncate to 100 chars to avoid persisting sensitive forensic data in logs.
 - **sanitizeAnalysisFocus prompt hardening** – Restrict to alphanumeric and basic punctuation only; limit 50 chars.
 - **Vision findings in Supervisor context** – Explicitly include Vision Findings in tool_block sent to Supervisor LLM.
+- **loadAndResizeImage base-dir access** – Reject base directory as image path; throw 'Access to the base directory as a file is not allowed.'
+- **Vision findings sanitization** – Add plain_text param to _sanitize_tool_output_for_llm; vision text passes through clean without '(parse failed; escaped raw)' label.
+- **vision_agent parse failure** – Return error=True with meaningful message instead of silently returning empty findings.
+- **Vision error surfacing** – Add vision_error_message to build_forensic_report; include 'Vision analysis failed' in Supervisor tool_block; surface in deterministic report.
+- **Model routing** – Provider-specific env vars (ANTHROPIC_MODEL, OLLAMA_MODEL, OPENAI_MODEL); prevent OLLAMA_MODEL from affecting --provider anthropic.
+- **Anthropic model ID** – Default to claude-3-5-sonnet-latest (deprecated 20241022); ANTHROPIC_MODEL in .env overrides.
 
 ### Added
 

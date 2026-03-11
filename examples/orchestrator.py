@@ -64,9 +64,11 @@ PROMPTS_THE_JUDGE_PATH = CONFIG_DIR / "prompts_the_judge.yaml"
 _server_dir = "dist" if (PROJECT_ROOT / "dist" / "index.js").exists() else "build"
 SERVER_ENTRY = PROJECT_ROOT / _server_dir / "index.js"
 
-# Default model names per provider (override via env: LLM_MODEL)
+# Default model names per provider. Use provider-specific env vars to avoid
+# cross-routing: ANTHROPIC_MODEL (cloud), OLLAMA_MODEL (local synthesis).
+# OLLAMA_VISION_MODEL is separate (Sovereign Vault vision only, in MCP server).
 DEFAULT_MODELS = {
-    "anthropic": "claude-3-5-haiku-20241022",
+    "anthropic": "claude-3-5-sonnet-latest",
     "openai": "gpt-4o-mini",
     "ollama": "llama3.2",
     "lm_studio": "local-model",  # LM Studio uses the loaded model name
@@ -153,15 +155,34 @@ def get_model_client(
     (used by The Accountant for classification; the forensic CoT prefix would
     conflict with the strict LEVEL_1/LEVEL_2 classifier persona).
 
-    When model_override is set, use it instead of LLM_MODEL env / DEFAULT_MODELS
-    (avoids env mutation for concurrent or library usage).
+    When model_override is set, use it instead of env / DEFAULT_MODELS.
+    Provider-specific env vars prevent cross-routing (e.g. OLLAMA_MODEL
+    must not affect --provider anthropic).
     """
     if model_override is not None and model_override.strip():
         model = model_override.strip()
-    else:
-        model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODELS.get(
-            provider, ""
+    elif provider == "anthropic":
+        model = (
+            (os.environ.get("ANTHROPIC_MODEL") or "").strip()
+            or DEFAULT_MODELS.get("anthropic", "")
         )
+    elif provider == "openai":
+        model = (
+            (os.environ.get("OPENAI_MODEL") or "").strip()
+            or DEFAULT_MODELS.get("openai", "")
+        )
+    elif provider == "ollama":
+        model = (
+            (os.environ.get("OLLAMA_MODEL") or os.environ.get("LLM_MODEL") or "").strip()
+            or DEFAULT_MODELS.get("ollama", "")
+        )
+    elif provider == "lm_studio":
+        model = (
+            (os.environ.get("LM_STUDIO_MODEL") or os.environ.get("LLM_MODEL") or "").strip()
+            or DEFAULT_MODELS.get("lm_studio", "")
+        )
+    else:
+        model = DEFAULT_MODELS.get(provider, "")
 
     if provider == "anthropic":
         return _make_anthropic_client(model)
