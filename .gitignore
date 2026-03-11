@@ -7,6 +7,7 @@ __pycache__/
 .env.local
 .DS_Store
 .venv/
+.venv_sovereign/
 
 ## Project Specific
 commit-message.txt

@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **existsSync in async** – Remove; use realpath (throws if missing) for existence check.
 - **OLLAMA_HOST octet bounds** – Validate each IP octet is 0–255; reject e.g. 10.999.0.1.
 - **Timer leak on !res.ok** – Move clearTimeout into finally block so it runs on all exit paths (success, HTTP error, abort, throw).
+- **vision_agent JSON decode** – Log malformed responses with logger.error(); retain safe fallback (visual_findings: "") so audit does not crash.
+- **ollama optional** – Comment out ollama in requirements.txt; cloud users not forced to install.
+- **Vision_Testing.md** – Remove Pillow; clarify sharp handles all image processing in MCP server.
 
 ### Added
 

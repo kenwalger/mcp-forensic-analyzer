@@ -3,29 +3,42 @@ To test The Local Eye properly, you need your local environment to handle both t
 Since you are running this on your own machine, this is where the "Sovereignty" actually happens—no data leaves your local network during this phase.
 
 🛠️ The Installation Checklist
+
+## The Vision Step
+
 1. Ollama & The Vision Model
-Ollama needs the specific weights for the multimodal model to handle images.
+[Ollama](https://ollama.com/) needs the specific weights for the multimodal model to handle images.
 
-Action: Run this in your terminal:
+Install Ollama with:
 
-Bash
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Then run this in your terminal:
+
+```bash
 ollama pull llama3.2-vision
-Note: If you have limited VRAM (under 8GB), you can also try ollama pull moondream which is a much smaller but very capable vision model.
+```
+Note: If you have limited VRAM (under 8GB), you can also try `ollama pull moondream` which is a much smaller but very capable vision model.
 
 2. Node.js Dependencies (The Processor)
 Your MCP server needs the sharp library to handle the image "airlock" (resizing/formatting).
 
-Action: In your mcp-forensic-analyzer root (or wherever your package.json lives):
+Action: In your `mcp-forensic-analyzer` root (or wherever your `package.json` lives):
 
-Bash
+```bash
 npm install sharp
+```
+
 3. Python Dependencies (The Agent)
-The orchestrator needs to be able to pass file paths and handle the vision results.
+The orchestrator needs to pass file paths and handle the vision results. All image processing uses sharp in the MCP server; no Python image libs required.
 
-Action: Ensure your environment has Pillow (though sharp does the heavy lifting in TS, Pillow is good for Python-side validation):
+For `--provider ollama` (LLM synthesis and Sovereign Vault vision):
+```bash
+pip install ollama
+```
 
-Bash
-pip install Pillow
 🖼️ What image should you use for testing?
 For a "Forensic" demo, you want an image that has text, texture, and metadata for the model to "chew" on.
 
@@ -40,3 +53,17 @@ Read the Year (OCR).
 Identify the Publisher Logo (Pattern recognition).
 
 Spot "Foxing" or Water damage (Visual forensics).
+
+## The Redactor Step
+
+1. The Brains (NLP Models)
+We need spaCy—the industry standard for industrial-strength Natural Language Processing.
+
+Action: Run these in your terminal:
+
+```bash
+pip install spacy presidio-analyzer presidio-anonymizer
+python -m spacy download en_core_web_lg
+```
+
+> Note: We use the lg (large) model instead of sm (small) because in forensics, missing a name due to a smaller vector space is a compliance failure.

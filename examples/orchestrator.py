@@ -409,7 +409,12 @@ async def vision_agent(
             "raw": text,
             "visual_findings": vf,
         }
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.error(
+            "Vision tool returned malformed JSON: %s. Raw output: %s",
+            e,
+            text[:500] + ("..." if len(text) > 500 else ""),
+        )
         return {"error": False, "data": None, "raw": text, "visual_findings": ""}
 
 

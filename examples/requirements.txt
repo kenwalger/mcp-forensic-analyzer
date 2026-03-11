@@ -7,6 +7,8 @@ pyyaml>=6.0
 # LLM providers (install as needed)
 # Cloud: pip install anthropic  # for --provider anthropic
 #        pip install openai     # for --provider openai
-# Local: pip install ollama     # for --provider ollama, Sovereign Vault vision
-#        pip install openai     # for --provider lm_studio (OpenAI-compatible API)
-ollama>=0.3.0
+# Local provider (Sovereign Vault vision, --provider ollama):
+#        pip install ollama>=0.3.0
+spacy
+presidio-analyzer
+presidio-anonymizer
