@@ -51,6 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Post 3.2: The Redactor** – PII scrubbing before cloud egress:
+  - `examples/redactor.py`: SovereignRedactor with presidio-analyzer, presidio-anonymizer, spacy en_core_web_lg.
+  - scrub(text) redacts PERSON, LOCATION, ORGANIZATION; returns (scrubbed_text, count).
+  - Airlock: vision findings scrubbed only when sent to Anthropic/OpenAI; terminal and build_forensic_report stay unredacted.
+  - Log: "🛡️ Sovereign Vault: [n] entities redacted from egress."
+  - Full vision_context passed to Redactor (no truncation before scrub).
+
 - **Series 3: The Sovereign Vault** – Local image analysis for forensic audit with strict data sovereignty:
   - `analyze_artifact_vision` MCP tool: uses sharp to resize images to 512×512, sends to local Ollama (llama3.2-vision:11b). Raw image and base64 cleared from memory after call. Returns only structured text.
   - `vision_agent` in orchestrator.py: calls the MCP tool and injects visual findings into Analyst context.

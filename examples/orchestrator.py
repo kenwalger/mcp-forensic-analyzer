@@ -49,6 +49,21 @@ if str(SCRIPT_DIR) not in sys.path:
 # Load .env from project root (shared with MCP server) so NOTION_*, OLLAMA_*, etc. are set
 load_dotenv(PROJECT_ROOT / ".env")
 
+# Post 3.2: The Redactor — PII scrubbing for cloud egress (lazy; may fail if deps missing)
+_redactor: "SovereignRedactor | None" = None
+
+
+def _get_redactor() -> "SovereignRedactor | None":
+    """Lazy-init SovereignRedactor. Returns None if presidio/spacy not installed."""
+    global _redactor
+    if _redactor is None:
+        try:
+            from redactor import SovereignRedactor
+            _redactor = SovereignRedactor()
+        except ImportError:
+            pass
+    return _redactor
+
 logger = logging.getLogger(__name__)
 
 # Request timeout for LLM calls (seconds); overridable via LLM_TIMEOUT env
@@ -856,7 +871,17 @@ async def run_forensic_audit(
                             tool_parts.append(f"Audit framing:\n{framed}")
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
                         if vision_context and vision_context.strip():
-                            vision_safe = _sanitize_tool_output_for_llm(vision_context, plain_text=True)
+                            vision_for_egress = vision_context
+                            if provider in ("anthropic", "openai"):
+                                red = _get_redactor()
+                                if red is not None:
+                                    vision_for_egress, n = red.scrub(vision_context)
+                                    if n > 0:
+                                        logger.info(
+                                            "🛡️ Sovereign Vault: %d entities redacted from egress.",
+                                            n,
+                                        )
+                            vision_safe = _sanitize_tool_output_for_llm(vision_for_egress, plain_text=True)
                             tool_parts.append(
                                 f"Vision Findings (Sovereign Vault — Local Analysis):\n{vision_safe}"
                             )
