@@ -48,6 +48,11 @@ class SovereignRedactor:
                 "Sovereign Redactor requires: pip install presidio-analyzer presidio-anonymizer spacy && "
                 "python -m spacy download en_core_web_lg"
             ) from e
+        except OSError:
+            logger.error(
+                "Sovereign Redactor: spaCy model not found. Please run: python -m spacy download en_core_web_lg"
+            )
+            raise
 
     def scrub(self, text: str) -> tuple[str, int]:
         """
@@ -70,9 +75,19 @@ class SovereignRedactor:
         if not results:
             return text, 0
 
+        from presidio_anonymizer.entities import OperatorConfig
+
+        operators = {
+            "DEFAULT": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
+            "PERSON": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
+            "LOCATION": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
+            "ORGANIZATION": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
+        }
+
         anonymized = self._anonymizer.anonymize(
             text=text,
             analyzer_results=results,
+            operators=operators,
         )
 
         return anonymized.text, len(results)

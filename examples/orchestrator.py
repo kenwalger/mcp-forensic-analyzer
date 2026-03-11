@@ -50,18 +50,34 @@ if str(SCRIPT_DIR) not in sys.path:
 load_dotenv(PROJECT_ROOT / ".env")
 
 # Post 3.2: The Redactor — PII scrubbing for cloud egress (lazy; may fail if deps missing)
+_REDACTOR_DISABLED = object()
 _redactor: "SovereignRedactor | None" = None
 
 
 def _get_redactor() -> "SovereignRedactor | None":
     """Lazy-init SovereignRedactor. Returns None if presidio/spacy not installed."""
     global _redactor
+    if _redactor is _REDACTOR_DISABLED:
+        return None
     if _redactor is None:
+        try:
+            import presidio_analyzer  # noqa: F401
+            import presidio_anonymizer  # noqa: F401
+        except ImportError:
+            logger.warning(
+                "PII Redactor disabled: presidio/spacy dependencies not found."
+            )
+            _redactor = _REDACTOR_DISABLED
+            return None
         try:
             from redactor import SovereignRedactor
             _redactor = SovereignRedactor()
         except ImportError:
-            pass
+            logger.warning(
+                "PII Redactor disabled: presidio/spacy dependencies not found."
+            )
+            _redactor = _REDACTOR_DISABLED
+            return None
     return _redactor
 
 logger = logging.getLogger(__name__)
@@ -875,11 +891,16 @@ async def run_forensic_audit(
                             if provider in ("anthropic", "openai"):
                                 red = _get_redactor()
                                 if red is not None:
-                                    vision_for_egress, n = red.scrub(vision_context)
-                                    if n > 0:
-                                        logger.info(
-                                            "🛡️ Sovereign Vault: %d entities redacted from egress.",
-                                            n,
+                                    try:
+                                        vision_for_egress, n = red.scrub(vision_context)
+                                        if n > 0:
+                                            logger.info(
+                                                "🛡️ Sovereign Vault: %d entities redacted from egress.",
+                                                n,
+                                            )
+                                    except Exception:
+                                        logger.warning(
+                                            "PII Redactor failed during scrub; using unredacted vision findings."
                                         )
                             vision_safe = _sanitize_tool_output_for_llm(vision_for_egress, plain_text=True)
                             tool_parts.append(

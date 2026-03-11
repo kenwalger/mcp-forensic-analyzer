@@ -4,9 +4,12 @@ python-dotenv>=1.0.0
 # Prompt externalization (config/prompts.yaml)
 pyyaml>=6.0
 
-# Post 3.2: The Redactor (PII scrubbing before cloud egress)
-# pip install presidio-analyzer presidio-anonymizer spacy
-# python -m spacy download en_core_web_lg
+# Optional: PII Redactor Dependencies
+# Optional for local PII scrubbing before cloud egress (Anthropic/OpenAI)
+presidio-analyzer
+presidio-anonymizer
+spacy
+# After installing: python -m spacy download en_core_web_lg
 
 # LLM providers (install as needed)
 # Cloud: pip install anthropic  # for --provider anthropic
