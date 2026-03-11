@@ -82,6 +82,9 @@ async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
       `Path traversal not allowed: ${imagePath}. Paths are resolved relative to SOVEREIGN_VAULT_IMAGE_BASE (default: cwd).`
     );
   }
+  if (resolved === base) {
+    throw new Error("Access to the base directory as a file is not allowed.");
+  }
   const realBase = await realpath(base);
   let realResolved: string;
   try {
@@ -89,8 +92,10 @@ async function loadAndResizeImage(imagePath: string): Promise<Buffer> {
   } catch {
     throw new Error(`Image not found: ${imagePath}`);
   }
+  if (realResolved === realBase) {
+    throw new Error("Access to the base directory as a file is not allowed.");
+  }
   if (
-    realResolved !== realBase &&
     !realResolved.startsWith(realBase + sep)
   ) {
     throw new Error(

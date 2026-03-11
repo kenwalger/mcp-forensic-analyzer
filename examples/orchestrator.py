@@ -339,16 +339,24 @@ def extract_text_content(result) -> str:
     return "\n".join(parts)
 
 
-def _sanitize_tool_output_for_llm(raw: str) -> str:
+def _sanitize_tool_output_for_llm(raw: str, plain_text: bool = False) -> str:
     """
     Mitigate prompt injection: parse JSON and re-serialize so tool output is
     passed as structured data, not freeform text that could contain adversarial
     instructions. On parse failure, JSON-escape the excerpt so it cannot embed
     outer prompt delimiters (e.g. ---END TOOL OUTPUT---) that could undermine
     the injection mitigation.
+    plain_text: when True, pass through as-is (e.g. Vision findings); no JSON parse.
     """
     if not raw or not raw.strip():
         return "(no output)"
+    if plain_text:
+        text = raw.strip()
+        if "---END TOOL OUTPUT---" in text:
+            text = text.replace("---END TOOL OUTPUT---", "[DELIMITER]")
+        if "---BEGIN TOOL OUTPUT---" in text:
+            text = text.replace("---BEGIN TOOL OUTPUT---", "[DELIMITER]")
+        return text
     try:
         parsed = json.loads(raw.strip())
         return json.dumps(parsed, indent=2)
@@ -411,7 +419,12 @@ async def vision_agent(
         }
     except json.JSONDecodeError:
         logger.error(f"Vision Agent parse failure: {text[:100]}{'...' if len(text) > 100 else ''}")
-        return {"error": False, "data": None, "raw": text, "visual_findings": ""}
+        return {
+            "error": True,
+            "message": "Vision Agent failed to parse tool response (invalid JSON)",
+            "raw": text,
+            "visual_findings": "",
+        }
 
 
 async def librarian_agent(session: ClientSession, title: str, author: str | None) -> dict:
@@ -587,6 +600,7 @@ def build_forensic_report(
     analyst_result: dict,
     disputed_discrepancies: list[dict] | None = None,
     vision_context: str | None = None,
+    vision_error_message: str | None = None,
 ) -> str:
     """Supervisor: Combine Librarian and Analyst findings into a Forensic Report."""
     lines = [
@@ -666,6 +680,15 @@ def build_forensic_report(
             "───────────────────────────────────────────────────────────────",
             "",
             f"  {vf}",
+        ])
+    elif vision_error_message:
+        lines.extend([
+            "",
+            "───────────────────────────────────────────────────────────────",
+            "  VISION ANALYSIS (Sovereign Vault)",
+            "───────────────────────────────────────────────────────────────",
+            "",
+            f"  Status: Failed — {vision_error_message}",
         ])
 
     lines.extend([
@@ -752,6 +775,7 @@ async def run_forensic_audit(
 
             # Sovereign Vault: if artifact image provided, run Vision first; inject into Analyst
             vision_context: str | None = None
+            vision_result: dict | None = None
             if artifact_image_path:
                 vision_result = await vision_agent(
                     session, artifact_image_path, analysis_focus
@@ -811,9 +835,14 @@ async def run_forensic_audit(
                             tool_parts.append(f"Audit framing:\n{framed}")
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
                         if vision_context and vision_context.strip():
-                            vision_safe = _sanitize_tool_output_for_llm(vision_context)
+                            vision_safe = _sanitize_tool_output_for_llm(vision_context, plain_text=True)
                             tool_parts.append(
                                 f"Vision Findings (Sovereign Vault — Local Analysis):\n{vision_safe}"
+                            )
+                        elif vision_result and vision_result.get("error"):
+                            msg = vision_result.get("message", "unknown error")
+                            tool_parts.append(
+                                f"Vision analysis failed: {_sanitize_cli_for_prompt(msg, max_len=200)}"
                             )
                         if disputed:
                             disputed_raw = json.dumps(disputed)
@@ -838,18 +867,30 @@ async def run_forensic_audit(
                         provider,
                         e,
                     )
+                    vision_err = (
+                        vision_result.get("message")
+                        if vision_result and vision_result.get("error")
+                        else None
+                    )
                     return (
                         f"[LLM synthesis failed: {e}]\n\n"
                         + build_forensic_report(
                             title, author, librarian_result, analyst_result,
                             disputed_discrepancies=disputed,
                             vision_context=vision_context,
+                            vision_error_message=vision_err,
                         )
                     )
+            vision_err = (
+                vision_result.get("message")
+                if vision_result and vision_result.get("error")
+                else None
+            )
             return build_forensic_report(
                 title, author, librarian_result, analyst_result,
                 disputed_discrepancies=disputed,
                 vision_context=vision_context,
+                vision_error_message=vision_err,
             )
 
 
