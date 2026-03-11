@@ -67,7 +67,7 @@ def _get_redactor() -> Any:  # Returns SovereignRedactor | None
             import presidio_anonymizer  # noqa: F401
         except ImportError:
             logger.warning(
-                "PII Redactor disabled: presidio/spacy dependencies not found."
+                "PII Redactor disabled: Presidio/spaCy dependencies not found in environment."
             )
             _redactor = _REDACTOR_DISABLED
             return None
@@ -76,7 +76,7 @@ def _get_redactor() -> Any:  # Returns SovereignRedactor | None
             _redactor = SovereignRedactor()
         except ImportError:
             logger.warning(
-                "PII Redactor disabled: presidio/spacy dependencies not found."
+                "PII Redactor disabled: SovereignRedactor module not found in examples/."
             )
             _redactor = _REDACTOR_DISABLED
             return None
