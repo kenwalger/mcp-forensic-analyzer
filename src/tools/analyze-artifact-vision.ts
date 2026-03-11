@@ -144,8 +144,6 @@ export async function executeAnalyzeArtifactVision(
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
     if (!res.ok) {
       const text = await res.text();
       return {
@@ -158,7 +156,6 @@ export async function executeAnalyzeArtifactVision(
     const text = data?.message?.content?.trim() ?? "";
     return { visual_findings: text };
   } catch (e) {
-    clearTimeout(timeoutId);
     if (e instanceof Error && e.name === "AbortError") {
       return {
         visual_findings: "",
@@ -167,6 +164,7 @@ export async function executeAnalyzeArtifactVision(
     }
     throw e;
   } finally {
+    clearTimeout(timeoutId);
     // Privacy Guard: zero the resized image buffer (JS strings cannot be cleared)
     buffer.fill(0);
   }

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TOCTOU symlink race** – Read from realResolved (verified canonical path) instead of resolved; prevents symlink swap between check and read.
 - **existsSync in async** – Remove; use realpath (throws if missing) for existence check.
 - **OLLAMA_HOST octet bounds** – Validate each IP octet is 0–255; reject e.g. 10.999.0.1.
+- **Timer leak on !res.ok** – Move clearTimeout into finally block so it runs on all exit paths (success, HTTP error, abort, throw).
 
 ### Added
 
