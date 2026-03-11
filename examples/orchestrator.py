@@ -465,7 +465,7 @@ async def vision_agent(
     }
     result = await session.call_tool("analyze_artifact_vision", arguments=args)
     text = extract_text_content(result)
-    print(f"DEBUG: Raw Vision Output: {text[:100]}{'...' if len(text) > 100 else ''}")
+    logger.debug("Raw Vision Output: %s...", text[:100] if len(text) > 100 else text)
 
     if result.isError:
         return {"error": True, "message": text, "raw": text, "visual_findings": ""}

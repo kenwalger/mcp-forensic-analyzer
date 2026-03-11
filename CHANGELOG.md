@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-03-10
+
+### Fixed
+
+- **Sovereign Redactor finalization (5/5 Confidence)**:
+  - Remove stdout pollution: Vision DEBUG print in orchestrator converted to logger.debug.
+  - Library logging etiquette: Remove logger.setLevel(logging.ERROR) from redactor; add docstring note that users can configure `mcp_forensic_analyzer.redactor` logger level in their own logging configuration.
+  - Presidio noise reduction: logging.getLogger("presidio-analyzer").setLevel(logging.ERROR) in _ensure_loaded to silence Presidio INFO logs without hard-coding global levels.
+  - Exception contract: scrub() try/except tightly scoped; returns (text, 0) on any failure, honoring implicit (str, int) contract.
+
 ## [0.14.0] - 2026-03-10
 
 ### Fixed
