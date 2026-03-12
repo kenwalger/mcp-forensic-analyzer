@@ -443,8 +443,12 @@ def _build_redactor_allow_list(
     book_standard: dict | None,
 ) -> list[str]:
     """Build allow_list for precision-guided redaction: book metadata (author, title, publisher)."""
-    _skip = frozenset({"the", "a", "an", "of", "and", "in", "to", "for"})
     allow: list[str] = []
+    # Full strings first so entities like "F. Scott Fitzgerald" are ignored entirely
+    for s in (title or "", author or ""):
+        if s.strip():
+            allow.append(s.strip())
+    _skip = frozenset({"the", "a", "an", "of", "and", "in", "to", "for"})
     for s in (title or "", author or ""):
         for word in s.split():
             w = "".join(c for c in word if c.isalnum() or c in "-'")

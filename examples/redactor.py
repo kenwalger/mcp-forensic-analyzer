@@ -104,12 +104,8 @@ class SovereignRedactor:
 
             from presidio_anonymizer.entities import OperatorConfig
 
-            operators = {
-                "DEFAULT": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
-                "PERSON": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
-                "LOCATION": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
-                "ORGANIZATION": OperatorConfig("replace", {"new_value": "<REDACTED>"}),
-            }
+            redacted = OperatorConfig("replace", {"new_value": "<REDACTED>"})
+            operators = {entity: redacted for entity in ["DEFAULT"] + _REDACT_ENTITIES}
 
             anonymized = self._anonymizer.anonymize(
                 text=text,
@@ -120,6 +116,10 @@ class SovereignRedactor:
             return anonymized.text, count
         except Exception as e:
             logger.error("PII scrubbing failed during execution: %s", e)
+            logger.warning(
+                "🛡️ Sovereign Vault: Scrubbing failed mid-call. "
+                "Egressing unredacted text for forensic continuity."
+            )
             if on_failure is not None:
                 on_failure()
             return text, 0
