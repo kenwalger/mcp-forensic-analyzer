@@ -1,7 +1,37 @@
 # MCP Forensic Analyser
 ### A Reference Implementation for Protocol-Driven AI Auditing
 
-The **MCP Forensic Analyser** is a Model Context Protocol (MCP) server designed to facilitate deep-dive archival audits and metadata reconciliation. Built as the cornerstone of the [End of Glue Code series](LINK_TO_YOUR_BLOG), it demonstrates how to move from brittle API integrations to a standardized, discovery-based AI architecture.
+## 🗺️ The Sovereign Vault Journey
+This repository is a companion to the **End of Glue Code** blog series. It demonstrates a **Secure-by-Design** architecture where sensitive data is processed locally before being analyzed by high-reasoning cloud models.
+
+> **New here?** Start with our [WALKTHROUGH.md](./WALKTHROUGH.md) to see how each blog post maps to the code.
+
+## 🏛️ Design Principles
+This project illustrates five core patterns for modern AI systems:
+1. **Local-First Perception:** Heavy visual processing happens on your metal, not in the cloud.
+2. **Standardized Tool Discovery:** Agents dynamically discover capabilities via MCP—no custom "glue code" for every new tool.
+3. **The Sovereign Airlock:** A multi-layered governance gate (Redactor + Guardian) that controls what leaves your network.
+4. **Cognitive Budgeting:** Semantic routing that uses the most cost-effective model for the task.
+5. **Evaluatable Intelligence:** An "LLM-as-a-Judge" framework to prove reliability through data, not "vibes".
+
+## 🐍 Why TypeScript + Python?
+We use a **Polyglot Architecture** to mirror real-world enterprise environments:
+- **TypeScript (MCP Server):** Ideal for defining the MCP lifecycle, strictly-typed schemas (Zod), and high-performance server-side logic.
+- **Python (Orchestrator):** The industry standard for agentic frameworks, data science, and local SLM interaction (Ollama/Presidio).
+
+
+### ⚡ 5-Minute Demo
+See the "Sovereign Vault" in action with a pre-configured audit:
+```bash
+# Analyze a sample artifact locally using the quick-start script
+python examples/quick_start.py --artifact ./test_images/sample.jpg
+```
+
+---
+
+The **MCP Forensic Analyser** is a Model Context Protocol (MCP) server designed to facilitate deep-dive archival audits and metadata reconciliation. Built as the cornerstone of the [End of Glue Code series](LINK_TO_YOUR_BLOG), it demonstrates how to move from brittle API integrations to a standardized, discovery-based AI architecture. 
+
+Rare book authentication is our primary case study, used to demonstrate a universal AI Forensic Architecture.
 
 ## 🏛️ Architecture: The "Zero-Glue" Stack
 Unlike traditional integrations, this server allows any MCP-compatible agent (Claude, Oracle 26ai, local SLMs) to dynamically discover forensic tools without custom code.
