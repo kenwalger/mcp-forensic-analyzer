@@ -53,6 +53,9 @@ load_dotenv(PROJECT_ROOT / ".env")
 _REDACTOR_DISABLED = object()
 _redactor: Any = None  # SovereignRedactor | None | _REDACTOR_DISABLED
 
+# Secure by default: redact for any provider NOT in this set (future Gemini, Mistral, etc.)
+LOCAL_PROVIDERS = frozenset({"ollama", "lm_studio", "none"})
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,6 +63,9 @@ def _disable_redactor() -> None:
     """Mark redactor as permanently disabled after runtime failure."""
     global _redactor
     _redactor = _REDACTOR_DISABLED
+    logger.warning(
+        "🛡️ Sovereign Vault: Redaction disabled for this session due to runtime error."
+    )
 
 
 def _get_redactor() -> Any:  # Returns SovereignRedactor | None
@@ -448,16 +454,16 @@ def _build_redactor_allow_list(
     for s in (title or "", author or ""):
         if s.strip():
             allow.append(s.strip())
+    if book_standard:
+        pub = book_standard.get("publisher") or book_standard.get("Publisher")
+        if pub and str(pub).strip():
+            allow.append(str(pub).strip())
     _skip = frozenset({"the", "a", "an", "of", "and", "in", "to", "for"})
     for s in (title or "", author or ""):
         for word in s.split():
             w = "".join(c for c in word if c.isalnum() or c in "-'")
             if len(w) > 1 and w.lower() not in _skip:
                 allow.append(w)
-    if book_standard:
-        pub = book_standard.get("publisher") or book_standard.get("Publisher")
-        if pub and str(pub).strip():
-            allow.append(str(pub).strip())
     return list(dict.fromkeys(allow))
 
 
@@ -935,7 +941,7 @@ async def run_forensic_audit(
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
                         if vision_context and vision_context.strip():
                             vision_for_egress = vision_context
-                            if provider in ("anthropic", "openai"):
+                            if provider not in LOCAL_PROVIDERS:
                                 red = _get_redactor()
                                 if red is not None:
                                     allow_list = _build_redactor_allow_list(

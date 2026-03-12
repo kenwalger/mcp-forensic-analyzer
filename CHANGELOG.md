@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.4] - 2026-03-10
+
+### Fixed
+
+- **Cloud leak fix — secure by default:** Invert redaction guard: define LOCAL_PROVIDERS = {ollama, lm_studio, none}; redact when provider not in LOCAL_PROVIDERS. Future cloud providers (Gemini, Mistral, etc.) are redacted by default.
+- **Allow-list refinement:** _build_redactor_allow_list adds full publisher (from book_standard) alongside full title/author before word tokens.
+- **on_failure observability:** _disable_redactor logs "🛡️ Sovereign Vault: Redaction disabled for this session due to runtime error."
+
 ## [0.14.3] - 2026-03-10
 
 ### Fixed
