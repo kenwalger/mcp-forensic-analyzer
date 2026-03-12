@@ -55,30 +55,32 @@ class SovereignRedactor:
             self._analyzer = analyzer
             self._anonymizer = anonymizer
             return True
-        except ImportError:
+        except Exception as e:
             self._load_failed = True
             self._analyzer = None
             self._anonymizer = None
             logger.error(
-                "Sovereign Redactor requires: pip install presidio-analyzer presidio-anonymizer spacy "
-                "&& python -m spacy download en_core_web_lg"
-            )
-            return False
-        except OSError:
-            self._load_failed = True
-            self._analyzer = None
-            self._anonymizer = None
-            logger.error(
-                "Sovereign Redactor: spaCy model not found. Please run: python -m spacy download en_core_web_lg"
+                "Sovereign Redactor load failed (presidio/spaCy): %s. "
+                "To enable PII redaction: pip install presidio-analyzer presidio-anonymizer spacy "
+                "&& python -m spacy download en_core_web_lg",
+                e,
             )
             return False
 
-    def scrub(self, text: str, *, on_failure: Callable[[], None] | None = None) -> tuple[str, int]:
+    def scrub(
+        self,
+        text: str,
+        *,
+        allow_list: list[str] | None = None,
+        on_failure: Callable[[], None] | None = None,
+    ) -> tuple[str, int]:
         """
         Replace PERSON, LOCATION, and ORGANIZATION entities with <REDACTED>.
 
-        If on_failure is provided and a runtime error occurs, it is invoked before
-        returning (text, 0), allowing the caller to disable the redactor.
+        allow_list: Strings to exclude from redaction (e.g. book metadata: author, title,
+            publisher). Distinguishes Metadata from PII for precision-guided redaction.
+        on_failure: If provided and a runtime error occurs, invoked before returning
+            (text, 0), allowing the caller to disable the redactor.
 
         Returns:
             (scrubbed_text, num_entities_redacted)
@@ -90,10 +92,12 @@ class SovereignRedactor:
             return text, 0
 
         try:
+            exclude = list(allow_list) if allow_list else []
             results = self._analyzer.analyze(
                 text=text,
                 language="en",
                 entities=_REDACT_ENTITIES,
+                allow_list=exclude,
             )
             if not results:
                 return text, 0

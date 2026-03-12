@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.2] - 2026-03-10
+
+### Fixed
+
+- **Optional dependency fix:** Comment out presidio-analyzer, presidio-anonymizer, spacy in examples/requirements.txt so they are not installed by default. Add note: "To enable PII redaction, uncomment the lines below and run pip install".
+- **Broad exception shield (_ensure_loaded):** Catch ALL exceptions (except Exception as e) during model loading; set _load_failed=True and log. Prevents expensive retry loop on ValueError, RuntimeError, missing model, etc.
+- **Precision-guided allow_list:** scrub() accepts allow_list parameter; orchestrator builds from title, author, publisher via _build_redactor_allow_list(). Distinguishes Metadata (author, title) from PII for fewer false redactions.
+
 ## [0.14.1] - 2026-03-10
 
 ### Fixed

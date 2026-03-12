@@ -437,6 +437,26 @@ def _sanitize_cli_for_prompt(s: str | None, max_len: int = 200) -> str:
     return cleaned if cleaned else "(unspecified)"
 
 
+def _build_redactor_allow_list(
+    title: str | None,
+    author: str | None,
+    book_standard: dict | None,
+) -> list[str]:
+    """Build allow_list for precision-guided redaction: book metadata (author, title, publisher)."""
+    _skip = frozenset({"the", "a", "an", "of", "and", "in", "to", "for"})
+    allow: list[str] = []
+    for s in (title or "", author or ""):
+        for word in s.split():
+            w = "".join(c for c in word if c.isalnum() or c in "-'")
+            if len(w) > 1 and w.lower() not in _skip:
+                allow.append(w)
+    if book_standard:
+        pub = book_standard.get("publisher") or book_standard.get("Publisher")
+        if pub and str(pub).strip():
+            allow.append(str(pub).strip())
+    return list(dict.fromkeys(allow))
+
+
 # -----------------------------------------------------------------------------
 # Agents
 # -----------------------------------------------------------------------------
@@ -914,8 +934,12 @@ async def run_forensic_audit(
                             if provider in ("anthropic", "openai"):
                                 red = _get_redactor()
                                 if red is not None:
+                                    allow_list = _build_redactor_allow_list(
+                                        title, author, book_standard
+                                    )
                                     vision_for_egress, n = red.scrub(
                                         vision_context,
+                                        allow_list=allow_list,
                                         on_failure=_disable_redactor,
                                     )
                                     if n > 0:
