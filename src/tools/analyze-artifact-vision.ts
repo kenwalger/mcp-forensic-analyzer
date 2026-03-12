@@ -50,9 +50,9 @@ function assertLocalOllamaHost(url: string): string {
 
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? "llama3.2-vision:11b";
 const OLLAMA_TIMEOUT_MS = (() => {
-  const raw = process.env.OLLAMA_VISION_TIMEOUT_MS?.trim() || "120000";
+  const raw = process.env.OLLAMA_VISION_TIMEOUT_MS?.trim() || "300000";
   const n = parseInt(raw, 10);
-  return n > 0 && !Number.isNaN(n) ? n : 120000;
+  return n > 0 && !Number.isNaN(n) ? n : 300000;
 })();
 const IMAGE_BASE = process.env.SOVEREIGN_VAULT_IMAGE_BASE ?? process.cwd();
 

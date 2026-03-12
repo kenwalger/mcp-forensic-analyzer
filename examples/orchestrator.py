@@ -49,7 +49,50 @@ if str(SCRIPT_DIR) not in sys.path:
 # Load .env from project root (shared with MCP server) so NOTION_*, OLLAMA_*, etc. are set
 load_dotenv(PROJECT_ROOT / ".env")
 
+# Post 3.2: The Redactor — PII scrubbing for cloud egress (lazy; may fail if deps missing)
+_REDACTOR_DISABLED = object()
+_redactor: Any = None  # SovereignRedactor | None | _REDACTOR_DISABLED
+
+# Secure by default: redact for any provider NOT in this set (future Gemini, Mistral, etc.)
+LOCAL_PROVIDERS = frozenset({"ollama", "lm_studio", "none"})
+
 logger = logging.getLogger(__name__)
+
+
+def _disable_redactor() -> None:
+    """Mark redactor as permanently disabled after runtime failure."""
+    global _redactor
+    _redactor = _REDACTOR_DISABLED
+    logger.warning(
+        "🛡️ Sovereign Vault: Redaction disabled for this session due to runtime error."
+    )
+
+
+def _get_redactor() -> Any:  # Returns SovereignRedactor | None
+    """Lazy-init SovereignRedactor. Returns None if presidio/spacy not installed."""
+    global _redactor
+    if _redactor is _REDACTOR_DISABLED:
+        return None
+    if _redactor is None:
+        try:
+            import presidio_analyzer  # noqa: F401
+            import presidio_anonymizer  # noqa: F401
+        except ImportError:
+            logger.warning(
+                "PII Redactor disabled: Presidio/spaCy dependencies not found in environment."
+            )
+            _redactor = _REDACTOR_DISABLED
+            return None
+        try:
+            from redactor import SovereignRedactor
+            _redactor = SovereignRedactor()
+        except ImportError:
+            logger.warning(
+                "PII Redactor disabled: SovereignRedactor module not found in examples/."
+            )
+            _redactor = _REDACTOR_DISABLED
+            return None
+    return _redactor
 
 # Request timeout for LLM calls (seconds); overridable via LLM_TIMEOUT env
 LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "120"))
@@ -356,7 +399,11 @@ def extract_text_content(result) -> str:
     parts = []
     for block in result.content:
         if isinstance(block, types.TextContent):
-            parts.append(block.text)
+            parts.append(str(getattr(block, "text", "")))
+        elif isinstance(block, dict) and "text" in block:
+            parts.append(str(block.get("text", "")))
+        elif hasattr(block, "text"):
+            parts.append(str(getattr(block, "text", "")))
     return "\n".join(parts)
 
 
@@ -396,6 +443,34 @@ def _sanitize_cli_for_prompt(s: str | None, max_len: int = 200) -> str:
     return cleaned if cleaned else "(unspecified)"
 
 
+def _build_redactor_allow_list(
+    title: str | None,
+    author: str | None,
+    book_standard: dict | None,
+) -> list[str]:
+    """Build allow_list for precision-guided redaction: book metadata (author, title, publisher)."""
+    allow: list[str] = []
+    pub_str: str = ""
+    if book_standard:
+        pub = book_standard.get("publisher") or book_standard.get("Publisher")
+        if pub and str(pub).strip():
+            pub_str = str(pub).strip()
+            allow.append(pub_str)
+    # Full strings first so entities like "F. Scott Fitzgerald" are ignored entirely
+    for s in (title or "", author or ""):
+        if s.strip():
+            allow.append(s.strip())
+    _skip = frozenset({"the", "a", "an", "of", "and", "in", "to", "for", "unknown"})
+    for s in (title or "", author or "", pub_str):
+        for word in s.split():
+            w = "".join(c for c in word if c.isalnum() or c in "-'")
+            if len(w) > 1 and w.lower() not in _skip:
+                allow.append(w)
+                if "'" in w:
+                    allow.append(w.split("'")[0])  # Scribner from Scribner's
+    return list(dict.fromkeys(allow))
+
+
 # -----------------------------------------------------------------------------
 # Agents
 # -----------------------------------------------------------------------------
@@ -424,14 +499,26 @@ async def vision_agent(
     }
     result = await session.call_tool("analyze_artifact_vision", arguments=args)
     text = extract_text_content(result)
+    excerpt = text[:100] + ("..." if len(text) > 100 else "")
+    logger.debug("Raw Vision Output: %s", excerpt)
 
     if result.isError:
         return {"error": True, "message": text, "raw": text, "visual_findings": ""}
 
     try:
         data = json.loads(text)
-        # Use visual_findings only when tool succeeded; never inject error messages
-        vf = "" if data.get("error") else (data.get("visual_findings", "") or "")
+        if data.get("error"):
+            err_val = data.get("error")
+            err_msg = err_val if isinstance(err_val, str) else str(err_val or "Unknown error")
+            logger.critical("Local Vision failed: %s", err_msg)
+            print(f"Local Vision failed: {err_msg}", file=sys.stderr)
+            return {
+                "error": True,
+                "message": err_msg,
+                "raw": text,
+                "visual_findings": "",
+            }
+        vf = data.get("visual_findings", "") or ""
         return {
             "error": False,
             "data": data,
@@ -692,7 +779,8 @@ def build_forensic_report(
                 lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
                             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
 
-    vf = ((analyst_result.get("data") or {}).get("visual_findings") or vision_context or "").strip()
+    analyst_data = analyst_result.get("data") or {}
+    vf = (analyst_data.get("visual_findings") or vision_context or "").strip()
     if vf:
         lines.extend([
             "",
@@ -856,7 +944,28 @@ async def run_forensic_audit(
                             tool_parts.append(f"Audit framing:\n{framed}")
                         tool_parts.extend([f"Librarian:\n{librarian_safe}", f"Analyst:\n{analyst_safe}"])
                         if vision_context and vision_context.strip():
-                            vision_safe = _sanitize_tool_output_for_llm(vision_context, plain_text=True)
+                            vision_for_egress = vision_context
+                            if provider not in LOCAL_PROVIDERS:
+                                red = _get_redactor()
+                                if red is not None:
+                                    allow_list = _build_redactor_allow_list(
+                                        title, author, book_standard
+                                    )
+                                    vision_for_egress, n = red.scrub(
+                                        vision_context,
+                                        allow_list=allow_list,
+                                        on_failure=_disable_redactor,
+                                    )
+                                    if n > 0:
+                                        logger.info(
+                                            "🛡️ Sovereign Vault: %d entities redacted from egress.",
+                                            n,
+                                        )
+                                else:
+                                    logger.warning(
+                                        "PII Redactor disabled; passing unredacted vision findings to cloud."
+                                    )
+                            vision_safe = _sanitize_tool_output_for_llm(vision_for_egress, plain_text=True)
                             tool_parts.append(
                                 f"Vision Findings (Sovereign Vault — Local Analysis):\n{vision_safe}"
                             )

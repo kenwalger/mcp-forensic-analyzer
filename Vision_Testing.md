@@ -54,16 +54,17 @@ Identify the Publisher Logo (Pattern recognition).
 
 Spot "Foxing" or Water damage (Visual forensics).
 
-## The Redactor Step
+## The Redactor Step (Post 3.2)
+
+The Sovereign Redactor scrubs PERSON, LOCATION, and ORGANIZATION from vision findings before they are sent to cloud providers (Anthropic, OpenAI). Local output stays unredacted.
 
 1. The Brains (NLP Models)
-We need spaCy—the industry standard for industrial-strength Natural Language Processing.
-
-Action: Run these in your terminal:
 
 ```bash
-pip install spacy presidio-analyzer presidio-anonymizer
+pip install presidio-analyzer presidio-anonymizer spacy
 python -m spacy download en_core_web_lg
 ```
 
 > Note: We use the lg (large) model instead of sm (small) because in forensics, missing a name due to a smaller vector space is a compliance failure.
+
+See `examples/redactor.py`. The orchestrator lazily loads the Redactor; if dependencies are missing, cloud runs proceed without PII scrubbing.

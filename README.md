@@ -14,6 +14,17 @@ We move beyond 'vibe-checking' agents by implementing an **LLM-as-a-Judge** fram
 - **Automated Evaluation:** Every architectural change is audited by a high-reasoning 'Judge Agent' to ensure zero regression in forensic accuracy.
 - **Structured Logging:** All provider errors and reasoning chains are captured for post-mortem analysis, moving away from silent failures.
 
+## 🛡️ The Redactor (Post 3.2 — PII Scrubbing)
+
+Before forensic text leaves the local environment for cloud providers (Anthropic, OpenAI), the **Sovereign Redactor** scrubs PERSON, LOCATION, and ORGANIZATION entities using Microsoft Presidio and spaCy. Terminal output and local report generation remain unredacted.
+
+```bash
+pip install presidio-analyzer presidio-anonymizer spacy
+python -m spacy download en_core_web_lg
+```
+
+The orchestrator lazily loads the Redactor; if dependencies are missing, cloud runs proceed without PII scrubbing. See `examples/redactor.py`.
+
 ## 🛡️ Human-in-the-Loop (The Guardian)
 The orchestrator implements **Governance** for high-stakes findings:
 - **Trigger:** When the Analyst identifies a HIGH severity discrepancy, the report is not finalized immediately.

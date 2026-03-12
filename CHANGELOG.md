@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.5] - 2026-03-10
+
+### Fixed
+
+- **Reliable failure callback:** scrub() calls on_failure() when _ensure_loaded() returns False, so _disable_redactor triggers on initial load failures (not just runtime crashes).
+- **Publisher allow-list:** _build_redactor_allow_list adds publisher word tokens (e.g. Scribner from "Charles Scribner's Sons") to the same loop as title/author. Scribner, Fitzgerald no longer redacted.
+- **Load-failure observability:** scrub() logs "🛡️ Sovereign Vault: Redactor load failed. Egressing unredacted." when _ensure_loaded returns False.
+
+## [0.14.4] - 2026-03-10
+
+### Fixed
+
+- **Cloud leak fix — secure by default:** Invert redaction guard: define LOCAL_PROVIDERS = {ollama, lm_studio, none}; redact when provider not in LOCAL_PROVIDERS. Future cloud providers (Gemini, Mistral, etc.) are redacted by default.
+- **Allow-list refinement:** _build_redactor_allow_list adds full publisher (from book_standard) alongside full title/author before word tokens.
+- **on_failure observability:** _disable_redactor logs "🛡️ Sovereign Vault: Redaction disabled for this session due to runtime error."
+
+## [0.14.3] - 2026-03-10
+
+### Fixed
+
+- **Full-string allow-listing:** _build_redactor_allow_list adds full title and full author before word tokens so entities like "F. Scott Fitzgerald" are ignored entirely by the Redactor.
+- **Operator map cleanup:** Replace redundant operator entries with dict comprehension `{entity: redacted for entity in ["DEFAULT"] + _REDACT_ENTITIES}`.
+- **Egress observability:** scrub() except block adds logger.warning("🛡️ Sovereign Vault: Scrubbing failed mid-call. Egressing unredacted text for forensic continuity.").
+
+## [0.14.2] - 2026-03-10
+
+### Fixed
+
+- **Optional dependency fix:** Comment out presidio-analyzer, presidio-anonymizer, spacy in examples/requirements.txt so they are not installed by default. Add note: "To enable PII redaction, uncomment the lines below and run pip install".
+- **Broad exception shield (_ensure_loaded):** Catch ALL exceptions (except Exception as e) during model loading; set _load_failed=True and log. Prevents expensive retry loop on ValueError, RuntimeError, missing model, etc.
+- **Precision-guided allow_list:** scrub() accepts allow_list parameter; orchestrator builds from title, author, publisher via _build_redactor_allow_list(). Distinguishes Metadata (author, title) from PII for fewer false redactions.
+
+## [0.14.1] - 2026-03-10
+
+### Fixed
+
+- **Sovereign Redactor finalization (5/5 Confidence)**:
+  - Remove stdout pollution: Vision DEBUG print in orchestrator converted to logger.debug.
+  - Library logging etiquette: Remove logger.setLevel(logging.ERROR) from redactor; add docstring note that users can configure `mcp_forensic_analyzer.redactor` logger level in their own logging configuration.
+  - Presidio noise reduction: logging.getLogger("presidio-analyzer").setLevel(logging.ERROR) in _ensure_loaded to silence Presidio INFO logs without hard-coding global levels.
+  - Exception contract: scrub() try/except tightly scoped; returns (text, 0) on any failure, honoring implicit (str, int) contract.
+  - **Redactor contract fix:** Move self._ensure_loaded() inside scrub's try block so ImportError/OSError from initial load hit except and return (text, 0) instead of crashing caller.
+  - **Type-safe extraction:** extract_text_content hasattr(block, "text") branch now uses str(getattr(block, "text", "")) to prevent TypeError when joining non-string content.
+  - **Redactor observability:** scrub() except block logs logger.error("PII scrubbing failed during execution: %s", e) before returning (text, 0); runtime failures no longer silent.
+  - **Debug string accuracy:** Raw Vision Output logger.debug only appends "..." when text actually truncated (len(text) > 100).
+  - **Type-safety (all branches):** extract_text_content applies str(getattr(...)) / str(block.get(...)) to TextContent, dict, and hasattr branches to prevent join() errors.
+  - **Redactor API cleanup:** _ensure_loaded() returns bool; scrub() uses `if not self._ensure_loaded(): return (text, 0)` instead of double-check.
+  - **Refactor triple .get:** Vision error extraction to err_val/err_msg; analyst visual_findings to analyst_data + vf for readability.
+  - **Sentinel consistency:** scrub() accepts optional on_failure callback; orchestrator passes _disable_redactor so runtime scrub failures set sentinel and prevent re-initialization.
+
 ## [0.14.0] - 2026-03-10
 
 ### Fixed
@@ -48,8 +98,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Vision error surfacing** – Add vision_error_message to build_forensic_report; include 'Vision analysis failed' in Supervisor tool_block; surface in deterministic report.
 - **Model routing** – Provider-specific env vars (ANTHROPIC_MODEL, OLLAMA_MODEL, OPENAI_MODEL); prevent OLLAMA_MODEL from affecting --provider anthropic.
 - **Anthropic model ID** – Default to claude-3-5-sonnet-latest (deprecated 20241022); ANTHROPIC_MODEL in .env overrides.
+- **Vision timeout** – Default OLLAMA_VISION_TIMEOUT_MS 120s -> 300s (5 min) for slow CPU inference.
+- **Local Vision error handling** – When tool returns error field (e.g. timeout), log CRITICAL and print to stderr: 'Local Vision failed: [message]'.
+- **Vision bridge** – extract_text_content fallbacks for dict/attr text; DEBUG print; Redactor returns original text when engines not loaded; warn when passing unredacted.
 
 ### Added
+
+- **Post 3.2: The Redactor** – PII scrubbing before cloud egress:
+  - `examples/redactor.py`: SovereignRedactor with presidio-analyzer, presidio-anonymizer, spacy en_core_web_lg.
+  - scrub(text) redacts PERSON, LOCATION, ORGANIZATION; returns (scrubbed_text, count).
+  - Airlock: vision findings scrubbed only when sent to Anthropic/OpenAI; terminal and build_forensic_report stay unredacted.
+  - Log: "🛡️ Sovereign Vault: [n] entities redacted from egress."
+  - Full vision_context passed to Redactor (no truncation before scrub).
+  - **Redactor hardening:** OperatorConfig replace with \<REDACTED\>; _ensure_loaded catches ImportError and OSError (missing spaCy model); scrub wrapped in try/except so runtime failure falls back to unredacted; _get_redactor eagerly checks presidio imports, logs 'PII Redactor disabled' on fail; requirements presidio/spacy in Optional section.
+  - **Redactor logic nits:** _ensure_loaded atomic init (temp vars, assign both only on success; except resets both to None); scrub count from anonymized.items (not analyzer results); _redactor type Any; _get_redactor below logger; presidio/spacy version pins (>=2.2.353, >=3.7.0).
+  - **Error Storm fix:** _load_failed flag; _ensure_loaded returns immediately (raises) when load previously failed, avoiding repeated expensive load attempts; differentiated logging (SovereignRedactor module vs Presidio/spaCy deps).
+  - **Silent Failure fix:** logger split into two lines so variable holds logger object (not None); _load_failed set before any logging in except blocks; _disable_redactor() on scrub failure so broken redactor never retried; sentinel check ensures session-wide disable.
 
 - **Series 3: The Sovereign Vault** – Local image analysis for forensic audit with strict data sovereignty:
   - `analyze_artifact_vision` MCP tool: uses sharp to resize images to 512×512, sends to local Ollama (llama3.2-vision:11b). Raw image and base64 cleared from memory after call. Returns only structured text.

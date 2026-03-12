@@ -8,7 +8,8 @@ This roadmap outlines the planned evolution of the Rare Book Intelligence MCP fr
 - [x] Permanent forensic audit logging with relational links.
 - [x] Evidence-based reporting with auction citations.
 
-## Phase 2: Enhanced Data Integrity (Next)
+## Phase 2: Enhanced Data Integrity (Current)
+- [x] **Post 3.2: The Redactor** — PII scrubbing (PERSON, LOCATION, ORGANIZATION) before cloud egress via presidio + spaCy en_core_web_lg. Vision findings scrubbed only when sent to Anthropic/OpenAI; local output unredacted.
 - **Global Identifiers:** Integrate **ISBN/OCLC** lookup tools to automatically pull metadata for 20th-century assets, reducing manual entry in the Master Bibliography.
 - **Image Analysis (Vision):** Leverage Claude 3.5/3.7 Vision to compare user-uploaded photos of title pages against "Archival Exemplars" stored in Notion.
 - **Batch Auditing:** Enable the MCP to scan an entire "New Acquisitions" view in Notion and flag discrepancies across dozens of items in a single pass.
