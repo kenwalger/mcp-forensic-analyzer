@@ -89,6 +89,11 @@ class SovereignRedactor:
             return text, 0
 
         if not self._ensure_loaded():
+            logger.warning(
+                "🛡️ Sovereign Vault: Redactor load failed. Egressing unredacted."
+            )
+            if on_failure is not None:
+                on_failure()
             return text, 0
 
         try:

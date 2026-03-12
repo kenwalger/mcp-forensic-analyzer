@@ -450,20 +450,24 @@ def _build_redactor_allow_list(
 ) -> list[str]:
     """Build allow_list for precision-guided redaction: book metadata (author, title, publisher)."""
     allow: list[str] = []
+    pub_str: str = ""
+    if book_standard:
+        pub = book_standard.get("publisher") or book_standard.get("Publisher")
+        if pub and str(pub).strip():
+            pub_str = str(pub).strip()
+            allow.append(pub_str)
     # Full strings first so entities like "F. Scott Fitzgerald" are ignored entirely
     for s in (title or "", author or ""):
         if s.strip():
             allow.append(s.strip())
-    if book_standard:
-        pub = book_standard.get("publisher") or book_standard.get("Publisher")
-        if pub and str(pub).strip():
-            allow.append(str(pub).strip())
-    _skip = frozenset({"the", "a", "an", "of", "and", "in", "to", "for"})
-    for s in (title or "", author or ""):
+    _skip = frozenset({"the", "a", "an", "of", "and", "in", "to", "for", "unknown"})
+    for s in (title or "", author or "", pub_str):
         for word in s.split():
             w = "".join(c for c in word if c.isalnum() or c in "-'")
             if len(w) > 1 and w.lower() not in _skip:
                 allow.append(w)
+                if "'" in w:
+                    allow.append(w.split("'")[0])  # Scribner from Scribner's
     return list(dict.fromkeys(allow))
 
 

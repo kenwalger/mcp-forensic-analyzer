@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.5] - 2026-03-10
+
+### Fixed
+
+- **Reliable failure callback:** scrub() calls on_failure() when _ensure_loaded() returns False, so _disable_redactor triggers on initial load failures (not just runtime crashes).
+- **Publisher allow-list:** _build_redactor_allow_list adds publisher word tokens (e.g. Scribner from "Charles Scribner's Sons") to the same loop as title/author. Scribner, Fitzgerald no longer redacted.
+- **Load-failure observability:** scrub() logs "🛡️ Sovereign Vault: Redactor load failed. Egressing unredacted." when _ensure_loaded returns False.
+
 ## [0.14.4] - 2026-03-10
 
 ### Fixed
