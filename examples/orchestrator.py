@@ -441,6 +441,8 @@ def _parse_confidence_score(value: Any, default: int = 0) -> tuple[int, bool]:
     """Parse confidence_score safely. Returns (score, valid). Logs warning if non-numeric."""
     if value is None:
         return default, False
+    if isinstance(value, bool):
+        return default, False
     try:
         n = int(value) if isinstance(value, (int, float)) else int(float(str(value)))
         return max(0, min(100, n)), True
@@ -983,14 +985,17 @@ async def run_forensic_audit(
                 try:
                     async with get_model_client(provider) as complete:
                         prompts = _get_prompts()
-                        system = prompts["supervisor_system"]
-                        auditor_persona = prompts.get("auditor_persona") or ""
-                        if auditor_persona.strip():
-                            system = auditor_persona.strip() + "\n\n" + system
-                        if guardian_enabled:
-                            guardian_prefix = (prompts.get("guardian") or {}).get("system_prefix") or ""
-                            if guardian_prefix.strip():
-                                system = guardian_prefix.strip() + "\n\n" + system
+                        # Role-Instruction-Constraint: Auditor (Role) first, Supervisor (Instructions), Guardian (Constraints) last
+                        auditor_persona = (prompts.get("auditor_persona") or "").strip()
+                        supervisor = prompts["supervisor_system"]
+                        guardian_prefix = (
+                            (prompts.get("guardian") or {}).get("system_prefix") or ""
+                        ).strip() if guardian_enabled else ""
+                        parts = [auditor_persona] if auditor_persona else []
+                        parts.append(supervisor)
+                        if guardian_prefix:
+                            parts.append(guardian_prefix)
+                        system = "\n\n".join(parts)
                         librarian_safe = _sanitize_tool_output_for_llm(
                             librarian_result.get("raw", "")
                         )

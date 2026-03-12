@@ -46,6 +46,7 @@ graph TB
     subgraph Governance_Layer [The Airlock]
         F[Sovereign Redactor]
         G[The Guardian: HITL]
+        H[Final Forensic Report]
     end
 
     A --> D
@@ -54,7 +55,7 @@ graph TB
     E --> F
     F --> B
     B --> G
-    G --> H[Final Forensic Report]
+    G --> H
     H --> C
 
     style Intelligence_Layer fill:#e3f2fd,stroke:#1565c0

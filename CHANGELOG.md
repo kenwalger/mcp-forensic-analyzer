@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.5] - 2026-03-12
+
+### Fixed
+
+- **Strict type parsing:** _parse_confidence_score excludes booleans; isinstance(value, bool) returns (0, False) to prevent True/False treated as 1/0.
+- **Prompt hierarchy:** System prompt assembly follows Role-Instruction-Constraint: Auditor Persona (Role) first, Supervisor (Instructions), Guardian (Constraints) last.
+- **Diagram anchor:** H[Final Forensic Report] moved inside Governance_Layer subgraph for visual anchoring.
+
 ## [0.15.4] - 2026-03-12
 
 ### Fixed
