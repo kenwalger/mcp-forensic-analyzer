@@ -55,8 +55,10 @@ graph TB
     F --> B
     B --> G
     G --> H[Final Forensic Report]
+    H --> C
 
     style Intelligence_Layer fill:#e3f2fd,stroke:#1565c0
+    style Capability_Layer fill:#e8f5e9,stroke:#2e7d32
     style Governance_Layer fill:#fce4ec,stroke:#c2185b
     style G fill:#f06292,stroke:#880e4f,stroke-width:3px
 ```

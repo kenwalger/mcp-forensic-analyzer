@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.4] - 2026-03-12
+
+### Fixed
+
+- **Verdict priority:** Move num_high > 0 check before disputed check. Even with one HIGH disputed and one authorized, verdict correctly shows "Authentication not supported".
+- **Mermaid diagram:** H[Final Forensic Report] --> C[The Judge]; add style for Capability_Layer (fill:#e8f5e9, stroke:#2e7d32).
+
 ## [0.15.3] - 2026-03-12
 
 ### Fixed

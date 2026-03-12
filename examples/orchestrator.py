@@ -837,14 +837,14 @@ def build_forensic_report(
     if analyst_result.get("error"):
         verdict_summary = "Inconclusive — Analyst error."
         confidence_str = "N/A"
+    elif num_high > 0:
+        verdict_summary = "Authentication not supported — HIGH-severity discrepancies indicate forgery risk or wrong edition."
+        confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
     elif disputed:
         verdict_summary = (
             "Inconclusive — One or more HIGH-severity findings were disputed by human. "
             "Requires further investigation."
         )
-        confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
-    elif num_high > 0:
-        verdict_summary = "Authentication not supported — HIGH-severity discrepancies indicate forgery risk or wrong edition."
         confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
     elif confidence_valid and confidence >= 80:
         verdict_summary = "✅ AUTHENTICATION SUPPORTED"
