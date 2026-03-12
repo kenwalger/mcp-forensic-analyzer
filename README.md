@@ -14,12 +14,26 @@ We move beyond 'vibe-checking' agents by implementing an **LLM-as-a-Judge** fram
 - **Automated Evaluation:** Every architectural change is audited by a high-reasoning 'Judge Agent' to ensure zero regression in forensic accuracy.
 - **Structured Logging:** All provider errors and reasoning chains are captured for post-mortem analysis, moving away from silent failures.
 
+## 👁️ Local Multimodal Vision (Post 3.1)
+The analyzer uses **Llama 3.2-Vision** via Ollama to perform local OCR and physical artifact inspection. This ensures that high-resolution images of sensitive documents never leave your local "Clean Room."
+
+- **Capabilities:** Handwriting transcription, paper aging analysis, and title page layout verification.
+- **Latency Note:** Local vision on CPU is resource-intensive. The system defaults to a **300s timeout** to accommodate deep forensic scans.
+- **Configuration:** Ensure Ollama is running `llama3.2-vision` (or a similar multimodal model).
+
+## 🛡️ The Redactor (Post 3.2)
+
 ## 🛡️ The Redactor (Post 3.2 — PII Scrubbing)
+The **Sovereign Redactor** implements a "Cloud-Agnostic" security airlock. It automatically scrubs PERSON, LOCATION, and ORGANIZATION entities from vision context before cloud egress.
 
-Before forensic text leaves the local environment for cloud providers (Anthropic, OpenAI), the **Sovereign Redactor** scrubs PERSON, LOCATION, and ORGANIZATION entities using Microsoft Presidio and spaCy. Terminal output and local report generation remain unredacted.
+- **Secure by Default:** Any provider not explicitly marked as `LOCAL` (e.g., Anthropic, OpenAI) triggers mandatory redaction.
+- **Precision Shield:** Uses an **Allow-list** (Title, Author, Publisher) to preserve forensic metadata while hiding PII.
+- **Fault Tolerance:** Implements a sentinel-based "Safe-Fail" pattern—if the NLP engine fails to load, the system warns the user and continues the audit unredacted rather than crashing.
 
+**Setup:**
 ```bash
-pip install presidio-analyzer presidio-anonymizer spacy
+# Uncomment the PII section in examples/requirements.txt, then:
+pip install -r examples/requirements.txt
 python -m spacy download en_core_web_lg
 ```
 
@@ -78,6 +92,12 @@ To use a different model or Ollama host, set the environment variables:
 LLM_MODEL=phi4 python examples/orchestrator.py --provider ollama
 OLLAMA_HOST=http://192.168.1.10:11434 python examples/orchestrator.py --provider ollama
 ```
+
+### Environment Variables
+| Variable | Description | Default |
+|---|---|---|
+| `OLLAMA_VISION_TIMEOUT_MS` | Timeout for local vision processing | `300000` (5 mins) |
+| `PII_REDACTION_ENABLED` | Toggle the Sovereign Redactor | `true` |
 
 > Note: SLMs require explicit instruction tuning. The orchestrator includes an optimized system prompt to help small models handle MCP JSON schemas effectively.
 
