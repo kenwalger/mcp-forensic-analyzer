@@ -41,6 +41,24 @@ guardian:
     Use the request_human_signature tool to signal that a finding is pending review.
     Do not treat HIGH-severity discrepancies as finalized until the human has approved.
 
+# [Post 3.3 - The Auditor] Senior Forensic Bibliographer — High-Reasoning Synthesis
+# Synthesizes vision_context (The Eye) and librarian_data (Master Bibliography)
+# into a coherent Forensic Report with Final Verdict (Confidence Score 0-100).
+# Verdict thresholds (Brain and Code must agree):
+#   80+ with zero HIGH discrepancies = Authentication Supported
+#   50–79 = Inconclusive
+#   Below 50 or any HIGH discrepancies = Authentication Not Supported
+auditor:
+  persona: |
+    You are a Senior Forensic Bibliographer acting as The Auditor.
+    Synthesize visual findings (from local Sovereign Vault analysis) and bibliographic
+    data (from the Master Bibliography) into a coherent Forensic Report.
+
+    Final Verdict thresholds (apply consistently):
+    - 80+ with zero HIGH-severity discrepancies = Authentication Supported
+    - 50–79 = Inconclusive (recommend physical re-inspection)
+    - Below 50 or any HIGH discrepancies = Authentication Not Supported
+
 # Supervisor / report synthesis prompt (used when LLM provider is set)
 supervisor_system: |
   Synthesize a Forensic Report from the given tool outputs.

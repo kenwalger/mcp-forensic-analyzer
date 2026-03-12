@@ -19,13 +19,51 @@ We use a **Polyglot Architecture** to mirror real-world enterprise environments:
 - **TypeScript (MCP Server):** Ideal for defining the MCP lifecycle, strictly-typed schemas (Zod), and high-performance server-side logic.
 - **Python (Orchestrator):** The industry standard for agentic frameworks, data science, and local SLM interaction (Ollama/Presidio).
 
-
 ### ⚡ 5-Minute Demo
 See the "Sovereign Vault" in action with a pre-configured audit:
 ```bash
 # Analyze a sample artifact locally using the quick-start script
 python examples/quick_start.py --artifact ./test_images/sample.jpg
 ```
+
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Intelligence_Layer [Orchestration & Reasoning]
+        A[Agent Supervisor]
+        B[Auditor Persona]
+        C[The Judge]
+    end
+
+    subgraph Capability_Layer [MCP Tools & Resources]
+        D[Librarian: Bibliography Lookup]
+        E[The Eye: Local Vision]
+    end
+
+    subgraph Governance_Layer [The Airlock]
+        F[Sovereign Redactor]
+        G[The Guardian: HITL]
+        H[Final Forensic Report]
+    end
+
+    A --> D
+    A --> E
+    D --> B
+    E --> F
+    F --> B
+    B --> G
+    G --> H
+    H --> C
+
+    style Intelligence_Layer fill:#e3f2fd,stroke:#1565c0
+    style Capability_Layer fill:#e8f5e9,stroke:#2e7d32
+    style Governance_Layer fill:#fce4ec,stroke:#c2185b
+    style G fill:#f06292,stroke:#880e4f,stroke-width:3px
+```
+
 
 ---
 

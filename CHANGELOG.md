@@ -5,7 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.5] - 2026-03-10
+## [0.15.5] - 2026-03-12
+
+### Fixed
+
+- **Strict type parsing:** _parse_confidence_score excludes booleans; isinstance(value, bool) returns (0, False) to prevent True/False treated as 1/0.
+- **Prompt hierarchy:** System prompt assembly follows Role-Instruction-Constraint: Auditor Persona (Role) first, Supervisor (Instructions), Guardian (Constraints) last.
+- **Diagram anchor:** H[Final Forensic Report] moved inside Governance_Layer subgraph for visual anchoring.
+
+## [0.15.4] - 2026-03-12
+
+### Fixed
+
+- **Verdict priority:** Move num_high > 0 check before disputed check. Even with one HIGH disputed and one authorized, verdict correctly shows "Authentication not supported".
+- **Mermaid diagram:** H[Final Forensic Report] --> C[The Judge]; add style for Capability_Layer (fill:#e8f5e9, stroke:#2e7d32).
+
+## [0.15.3] - 2026-03-12
+
+### Fixed
+
+- **Circuit-breaker verdict logic:** If num_high > 0, verdict is ALWAYS "Authentication not supported" regardless of confidence. Aligns code with prompts.yaml/CHANGELOG: "Any HIGH discrepancies = Authentication Not Supported". Refined thresholds: num_high == 0 and 80+ = Supported; num_high == 0 and 50–79 = Inconclusive; otherwise = Not supported.
+
+## [0.15.2] - 2026-03-12
+
+### Fixed
+
+- **Robust confidence parsing:** _parse_confidence_score() safe helper with try/except ValueError; logs warning and returns default (0) for non-numeric scores. Prevents crash on malformed analyst data.
+- **Persona alignment:** Auditor persona in prompts.yaml now includes verdict thresholds (80+ zero HIGH = Supported; 50–79 = Inconclusive; below 50 or any HIGH = Not Supported).
+- **Diagram correction:** Add D[Librarian] --> B[Auditor] edge to README Mermaid architecture diagram.
+- **Confidence N/A in Analyst section:** When confidence_score invalid, display "Confidence: N/A" instead of "0%".
+
+## [0.15.1] - 2026-03-12
+
+### Fixed
+
+- **Judicious verdict logic:** Authentication supported if confidence >= 80 AND zero HIGH-severity discrepancies. LOW-severity findings (e.g. publisher gap, year) do not block positive verdict.
+- **Confidence N/A:** When analyst error or missing data, display "N/A" instead of misleading 0/100.
+- **Code cleanup:** Use pre-computed disc variable in verdict branch; add num_high for HIGH-severity count.
+
+## [0.15.0] - 2026-03-12
+
+### Added
+
+- **Post 3.3 — The Auditor and The Guardian**
+  - **The Auditor (Senior Forensic Bibliographer):** config/prompts.yaml auditor persona; build_forensic_report synthesizes vision_context (The Eye) and librarian_data (Master Bibliography). Injected into Supervisor when LLM provider is set.
+  - **Guardian prompt update:** "🔴 HIGH SEVERITY FINDING: [Description]. Authorize this finding to finalize report? (y/n)". If user denies (n), finding flagged DISPUTED_BY_HUMAN.
+  - **Final Verdict section:** Confidence Score (0-100) and clear summary — authentication supported / inconclusive / not supported. Verdict accounts for disputed findings.
+  - **Type-safe dict handling:** build_forensic_report uses librarian_data, analyst_data with .get() and isinstance(d, dict) guards. Confidence clamped to 0-100.
 
 ### Fixed
 

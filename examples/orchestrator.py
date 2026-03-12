@@ -127,11 +127,14 @@ def _load_prompts() -> dict[str, Any]:
         )
     with open(PROMPTS_PATH, encoding="utf-8") as f:
         data = yaml.safe_load(f)
+    auditor = data.get("auditor") or {}
+    auditor_persona = (auditor.get("persona") or "").strip() if isinstance(auditor, dict) else ""
     result: dict[str, Any] = {
         "local_slm_system_prefix": (data.get("local_slm_system_prefix") or "").strip(),
         "supervisor_system": (data.get("supervisor_system") or "").strip(),
         "accountant": data.get("accountant") or {},
         "guardian": data.get("guardian") or {},
+        "auditor_persona": auditor_persona,
     }
     if PROMPTS_THE_JUDGE_PATH.exists():
         with open(PROMPTS_THE_JUDGE_PATH, encoding="utf-8") as f:
@@ -434,6 +437,20 @@ def _sanitize_tool_output_for_llm(raw: str, plain_text: bool = False) -> str:
         return f"(parse failed; escaped raw): {json.dumps(excerpt)}"
 
 
+def _parse_confidence_score(value: Any, default: int = 0) -> tuple[int, bool]:
+    """Parse confidence_score safely. Returns (score, valid). Logs warning if non-numeric."""
+    if value is None:
+        return default, False
+    if isinstance(value, bool):
+        return default, False
+    try:
+        n = int(value) if isinstance(value, (int, float)) else int(float(str(value)))
+        return max(0, min(100, n)), True
+    except (ValueError, TypeError) as e:
+        logger.warning("Invalid confidence_score %r: %s; using default %d", value, e, default)
+        return default, False
+
+
 def _sanitize_cli_for_prompt(s: str | None, max_len: int = 200) -> str:
     """Sanitize CLI-derived strings (title, author) before LLM prompt inclusion."""
     if s is None:
@@ -613,11 +630,11 @@ async def _apply_guardian_handshake(
     disputed_keys: set[tuple[str, str, str, str]] = set()
     stdin_closed = False
     for d in high_disc:
-        summary = (
+        description = (
             f"[{d.get('severity', '?')}] {d.get('field', '')}: "
             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'"
         )
-        print(f"\n  Guardian: HIGH severity finding — {summary}")
+        print(f"\n  🔴 HIGH SEVERITY FINDING: {description}")
         if stdin_closed:
             answer = "no"
         else:
@@ -627,7 +644,8 @@ async def _apply_guardian_handshake(
                 # stdin_closed state ensures we skip further input() calls and proceed gracefully.
                 answer = await asyncio.wait_for(
                     asyncio.to_thread(
-                        input, "  Do you authorize this forensic finding? (yes/no): "
+                        input,
+                        "  Authorize this finding to finalize report? (y/n): ",
                     ),
                     timeout=300,
                 )
@@ -710,7 +728,17 @@ def build_forensic_report(
     vision_context: str | None = None,
     vision_error_message: str | None = None,
 ) -> str:
-    """Supervisor: Combine Librarian and Analyst findings into a Forensic Report."""
+    """
+    The Auditor: Synthesize vision_context (The Eye) and librarian_data (Master Bibliography)
+    into a coherent Forensic Report with Final Verdict (Confidence Score 0-100).
+    """
+    librarian_data: dict = librarian_result.get("data") or {}
+    analyst_data: dict = analyst_result.get("data") or {}
+    disputed: list[dict] = disputed_discrepancies or []
+    disc: list[dict] = analyst_data.get("discrepancies") or []
+    confidence = 0
+    confidence_valid = False
+
     lines = [
         "═══════════════════════════════════════════════════════════════",
         "                    FORENSIC REPORT",
@@ -729,17 +757,17 @@ def build_forensic_report(
         lines.append(f"  Status: ERROR")
         lines.append(f"  {librarian_result.get('message', 'Unknown error')}")
     else:
-        data = librarian_result.get("data") or {}
-        if data.get("found"):
-            lines.append(f"  Status: Found {data.get('message', '')}")
-            if data.get("book_standards"):
-                std = data["book_standards"][0]
+        if librarian_data.get("found"):
+            lines.append(f"  Status: Found {librarian_data.get('message', '')}")
+            book_standards = librarian_data.get("book_standards") or []
+            if book_standards:
+                std = book_standards[0] if isinstance(book_standards[0], dict) else {}
                 lines.append(f"  Publisher: {std.get('publisher', 'N/A')}")
                 lines.append(f"  Expected Year: {std.get('expected_first_edition_year', 'N/A')}")
                 lines.append(f"  Binding: {std.get('binding_type', 'N/A')}")
         else:
             lines.append(f"  Status: Not Found")
-            lines.append(f"  {data.get('message', 'N/A')}")
+            lines.append(f"  {librarian_data.get('message', 'N/A')}")
 
     lines.extend([
         "",
@@ -752,19 +780,19 @@ def build_forensic_report(
         lines.append(f"  Status: ERROR")
         lines.append(f"  {analyst_result.get('message', 'Unknown error')}")
     else:
-        data = analyst_result.get("data") or {}
-        consistent = data.get("is_consistent", False)
-        confidence = data.get("confidence_score", 0)
+        consistent = bool(analyst_data.get("is_consistent", False))
+        confidence, confidence_valid = _parse_confidence_score(
+            analyst_data.get("confidence_score"), default=0
+        )
         lines.append(f"  Consistency: {'PASS' if consistent else 'FAIL'}")
-        lines.append(f"  Confidence: {confidence}%")
+        lines.append(f"  Confidence: {confidence}%" if confidence_valid else "  Confidence: N/A")
 
-        disc = data.get("discrepancies", [])
-        disputed = disputed_discrepancies or []
         if disc:
             lines.append("  Discrepancies:")
             for d in disc:
-                lines.append(f"    - [{d.get('severity', '?')}] {d.get('field', '')}: "
-                            f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
+                if isinstance(d, dict):
+                    lines.append(f"    - [{d.get('severity', '?')}] {d.get('field', '')}: "
+                                f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
         else:
             lines.append("  Discrepancies: None")
 
@@ -776,10 +804,11 @@ def build_forensic_report(
                 "───────────────────────────────────────────────────────────────",
             ])
             for d in disputed:
-                lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
-                            f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
+                if isinstance(d, dict):
+                    lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
+                                f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
 
-    analyst_data = analyst_result.get("data") or {}
+    # Vision synthesis (Sovereign Vault — The Eye)
     vf = (analyst_data.get("visual_findings") or vision_context or "").strip()
     if vf:
         lines.extend([
@@ -800,7 +829,47 @@ def build_forensic_report(
             f"  Status: Failed — {vision_error_message}",
         ])
 
+    # Final Verdict (Post 3.3 — The Auditor)
+    # Circuit-breaker: any HIGH discrepancies = Authentication Not Supported (per prompts.yaml).
+    # If num_high == 0: 80+ = Supported, 50–79 = Inconclusive, else = Not supported.
+    num_high = sum(
+        1 for d in disc
+        if isinstance(d, dict) and (d.get("severity") or "").upper() == "HIGH"
+    )
+    if analyst_result.get("error"):
+        verdict_summary = "Inconclusive — Analyst error."
+        confidence_str = "N/A"
+    elif num_high > 0:
+        verdict_summary = "Authentication not supported — HIGH-severity discrepancies indicate forgery risk or wrong edition."
+        confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
+    elif disputed:
+        verdict_summary = (
+            "Inconclusive — One or more HIGH-severity findings were disputed by human. "
+            "Requires further investigation."
+        )
+        confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
+    elif confidence_valid and confidence >= 80:
+        verdict_summary = "✅ AUTHENTICATION SUPPORTED"
+        confidence_str = f"{confidence}/100"
+    elif confidence_valid and confidence >= 50:
+        verdict_summary = "Inconclusive — Discrepancies present; recommend physical re-inspection."
+        confidence_str = f"{confidence}/100"
+    elif confidence_valid:
+        verdict_summary = "Authentication not supported — Confidence below threshold."
+        confidence_str = f"{confidence}/100"
+    else:
+        verdict_summary = "Inconclusive — Analyst data unavailable."
+        confidence_str = "N/A"
+
     lines.extend([
+        "",
+        "───────────────────────────────────────────────────────────────",
+        "  FINAL VERDICT",
+        "───────────────────────────────────────────────────────────────",
+        "",
+        f"  Confidence Score: {confidence_str}",
+        "",
+        f"  {verdict_summary}",
         "",
         "═══════════════════════════════════════════════════════════════",
         "                    END OF REPORT",
@@ -916,11 +985,17 @@ async def run_forensic_audit(
                 try:
                     async with get_model_client(provider) as complete:
                         prompts = _get_prompts()
-                        system = prompts["supervisor_system"]
-                        if guardian_enabled:
-                            guardian_prefix = (prompts.get("guardian") or {}).get("system_prefix") or ""
-                            if guardian_prefix.strip():
-                                system = guardian_prefix.strip() + "\n\n" + system
+                        # Role-Instruction-Constraint: Auditor (Role) first, Supervisor (Instructions), Guardian (Constraints) last
+                        auditor_persona = (prompts.get("auditor_persona") or "").strip()
+                        supervisor = prompts["supervisor_system"]
+                        guardian_prefix = (
+                            (prompts.get("guardian") or {}).get("system_prefix") or ""
+                        ).strip() if guardian_enabled else ""
+                        parts = [auditor_persona] if auditor_persona else []
+                        parts.append(supervisor)
+                        if guardian_prefix:
+                            parts.append(guardian_prefix)
+                        system = "\n\n".join(parts)
                         librarian_safe = _sanitize_tool_output_for_llm(
                             librarian_result.get("raw", "")
                         )
