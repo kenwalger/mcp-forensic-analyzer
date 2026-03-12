@@ -13,6 +13,7 @@ To control Redactor log verbosity, configure the 'mcp_forensic_analyzer.redactor
 """
 
 import logging
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,12 @@ class SovereignRedactor:
         self._anonymizer = None
         self._load_failed = False
 
-    def _ensure_loaded(self) -> None:
+    def _ensure_loaded(self) -> bool:
+        """Load presidio engines if needed. Returns True if ready, False if load failed."""
         if self._load_failed:
-            return
+            return False
         if self._analyzer is not None:
-            return
+            return True
         try:
             from presidio_analyzer import AnalyzerEngine
             from presidio_analyzer.nlp_engine import NlpEngineProvider
@@ -52,14 +54,16 @@ class SovereignRedactor:
             anonymizer = AnonymizerEngine()
             self._analyzer = analyzer
             self._anonymizer = anonymizer
-        except ImportError as e:
+            return True
+        except ImportError:
             self._load_failed = True
             self._analyzer = None
             self._anonymizer = None
-            raise ImportError(
-                "Sovereign Redactor requires: pip install presidio-analyzer presidio-anonymizer spacy && "
-                "python -m spacy download en_core_web_lg"
-            ) from e
+            logger.error(
+                "Sovereign Redactor requires: pip install presidio-analyzer presidio-anonymizer spacy "
+                "&& python -m spacy download en_core_web_lg"
+            )
+            return False
         except OSError:
             self._load_failed = True
             self._analyzer = None
@@ -67,11 +71,14 @@ class SovereignRedactor:
             logger.error(
                 "Sovereign Redactor: spaCy model not found. Please run: python -m spacy download en_core_web_lg"
             )
-            raise
+            return False
 
-    def scrub(self, text: str) -> tuple[str, int]:
+    def scrub(self, text: str, *, on_failure: Callable[[], None] | None = None) -> tuple[str, int]:
         """
         Replace PERSON, LOCATION, and ORGANIZATION entities with <REDACTED>.
+
+        If on_failure is provided and a runtime error occurs, it is invoked before
+        returning (text, 0), allowing the caller to disable the redactor.
 
         Returns:
             (scrubbed_text, num_entities_redacted)
@@ -79,14 +86,10 @@ class SovereignRedactor:
         if not text or not text.strip():
             return text, 0
 
-        if self._load_failed:
+        if not self._ensure_loaded():
             return text, 0
 
         try:
-            self._ensure_loaded()
-            if self._analyzer is None or self._anonymizer is None:
-                return text, 0
-
             results = self._analyzer.analyze(
                 text=text,
                 language="en",
@@ -113,4 +116,6 @@ class SovereignRedactor:
             return anonymized.text, count
         except Exception as e:
             logger.error("PII scrubbing failed during execution: %s", e)
+            if on_failure is not None:
+                on_failure()
             return text, 0

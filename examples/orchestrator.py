@@ -474,7 +474,8 @@ async def vision_agent(
     try:
         data = json.loads(text)
         if data.get("error"):
-            err_msg = data.get("error") if isinstance(data.get("error"), str) else str(data.get("error", "Unknown error"))
+            err_val = data.get("error")
+            err_msg = err_val if isinstance(err_val, str) else str(err_val or "Unknown error")
             logger.critical("Local Vision failed: %s", err_msg)
             print(f"Local Vision failed: {err_msg}", file=sys.stderr)
             return {
@@ -744,7 +745,8 @@ def build_forensic_report(
                 lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
                             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
 
-    vf = ((analyst_result.get("data") or {}).get("visual_findings") or vision_context or "").strip()
+    analyst_data = analyst_result.get("data") or {}
+    vf = (analyst_data.get("visual_findings") or vision_context or "").strip()
     if vf:
         lines.extend([
             "",
@@ -912,17 +914,14 @@ async def run_forensic_audit(
                             if provider in ("anthropic", "openai"):
                                 red = _get_redactor()
                                 if red is not None:
-                                    try:
-                                        vision_for_egress, n = red.scrub(vision_context)
-                                        if n > 0:
-                                            logger.info(
-                                                "🛡️ Sovereign Vault: %d entities redacted from egress.",
-                                                n,
-                                            )
-                                    except Exception:
-                                        _disable_redactor()
-                                        logger.warning(
-                                            "PII Redactor failed during scrub; using unredacted vision findings."
+                                    vision_for_egress, n = red.scrub(
+                                        vision_context,
+                                        on_failure=_disable_redactor,
+                                    )
+                                    if n > 0:
+                                        logger.info(
+                                            "🛡️ Sovereign Vault: %d entities redacted from egress.",
+                                            n,
                                         )
                                 else:
                                     logger.warning(

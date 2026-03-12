@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Redactor observability:** scrub() except block logs logger.error("PII scrubbing failed during execution: %s", e) before returning (text, 0); runtime failures no longer silent.
   - **Debug string accuracy:** Raw Vision Output logger.debug only appends "..." when text actually truncated (len(text) > 100).
   - **Type-safety (all branches):** extract_text_content applies str(getattr(...)) / str(block.get(...)) to TextContent, dict, and hasattr branches to prevent join() errors.
+  - **Redactor API cleanup:** _ensure_loaded() returns bool; scrub() uses `if not self._ensure_loaded(): return (text, 0)` instead of double-check.
+  - **Refactor triple .get:** Vision error extraction to err_val/err_msg; analyst visual_findings to analyst_data + vf for readability.
+  - **Sentinel consistency:** scrub() accepts optional on_failure callback; orchestrator passes _disable_redactor so runtime scrub failures set sentinel and prevent re-initialization.
 
 ## [0.14.0] - 2026-03-10
 
