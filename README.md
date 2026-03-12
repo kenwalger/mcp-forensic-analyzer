@@ -50,6 +50,7 @@ graph TB
 
     A --> D
     A --> E
+    D --> B
     E --> F
     F --> B
     B --> G

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.2] - 2026-03-12
+
+### Fixed
+
+- **Robust confidence parsing:** _parse_confidence_score() safe helper with try/except ValueError; logs warning and returns default (0) for non-numeric scores. Prevents crash on malformed analyst data.
+- **Persona alignment:** Auditor persona in prompts.yaml now includes verdict thresholds (80+ zero HIGH = Supported; 50–79 = Inconclusive; below 50 or any HIGH = Not Supported).
+- **Diagram correction:** Add D[Librarian] --> B[Auditor] edge to README Mermaid architecture diagram.
+- **Confidence N/A in Analyst section:** When confidence_score invalid, display "Confidence: N/A" instead of "0%".
+
 ## [0.15.1] - 2026-03-12
 
 ### Fixed

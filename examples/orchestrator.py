@@ -437,6 +437,18 @@ def _sanitize_tool_output_for_llm(raw: str, plain_text: bool = False) -> str:
         return f"(parse failed; escaped raw): {json.dumps(excerpt)}"
 
 
+def _parse_confidence_score(value: Any, default: int = 0) -> tuple[int, bool]:
+    """Parse confidence_score safely. Returns (score, valid). Logs warning if non-numeric."""
+    if value is None:
+        return default, False
+    try:
+        n = int(value) if isinstance(value, (int, float)) else int(float(str(value)))
+        return max(0, min(100, n)), True
+    except (ValueError, TypeError) as e:
+        logger.warning("Invalid confidence_score %r: %s; using default %d", value, e, default)
+        return default, False
+
+
 def _sanitize_cli_for_prompt(s: str | None, max_len: int = 200) -> str:
     """Sanitize CLI-derived strings (title, author) before LLM prompt inclusion."""
     if s is None:
@@ -767,11 +779,11 @@ def build_forensic_report(
         lines.append(f"  {analyst_result.get('message', 'Unknown error')}")
     else:
         consistent = bool(analyst_data.get("is_consistent", False))
-        confidence = int(analyst_data.get("confidence_score", 0)) if analyst_data.get("confidence_score") is not None else 0
-        confidence = max(0, min(100, confidence))
-        confidence_valid = True
+        confidence, confidence_valid = _parse_confidence_score(
+            analyst_data.get("confidence_score"), default=0
+        )
         lines.append(f"  Consistency: {'PASS' if consistent else 'FAIL'}")
-        lines.append(f"  Confidence: {confidence}%")
+        lines.append(f"  Confidence: {confidence}%" if confidence_valid else "  Confidence: N/A")
 
         if disc:
             lines.append("  Discrepancies:")
