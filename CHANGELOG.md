@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-03-12
+
+### Fixed
+
+- **Judicious verdict logic:** Authentication supported if confidence >= 80 AND zero HIGH-severity discrepancies. LOW-severity findings (e.g. publisher gap, year) do not block positive verdict.
+- **Confidence N/A:** When analyst error or missing data, display "N/A" instead of misleading 0/100.
+- **Code cleanup:** Use pre-computed disc variable in verdict branch; add num_high for HIGH-severity count.
+
 ## [0.15.0] - 2026-03-12
 
 ### Added

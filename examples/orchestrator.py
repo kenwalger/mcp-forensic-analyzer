@@ -721,7 +721,9 @@ def build_forensic_report(
     librarian_data: dict = librarian_result.get("data") or {}
     analyst_data: dict = analyst_result.get("data") or {}
     disputed: list[dict] = disputed_discrepancies or []
+    disc: list[dict] = analyst_data.get("discrepancies") or []
     confidence = 0
+    confidence_valid = False
 
     lines = [
         "═══════════════════════════════════════════════════════════════",
@@ -767,10 +769,10 @@ def build_forensic_report(
         consistent = bool(analyst_data.get("is_consistent", False))
         confidence = int(analyst_data.get("confidence_score", 0)) if analyst_data.get("confidence_score") is not None else 0
         confidence = max(0, min(100, confidence))
+        confidence_valid = True
         lines.append(f"  Consistency: {'PASS' if consistent else 'FAIL'}")
         lines.append(f"  Confidence: {confidence}%")
 
-        disc = analyst_data.get("discrepancies") or []
         if disc:
             lines.append("  Discrepancies:")
             for d in disc:
@@ -814,19 +816,33 @@ def build_forensic_report(
         ])
 
     # Final Verdict (Post 3.3 — The Auditor)
+    # Authentication supported if confidence >= 80 and zero HIGH-severity discrepancies.
+    # LOW-severity findings (e.g. publisher name gap) do not block a positive verdict.
+    num_high = sum(
+        1 for d in disc
+        if isinstance(d, dict) and (d.get("severity") or "").upper() == "HIGH"
+    )
     if analyst_result.get("error"):
         verdict_summary = "Inconclusive — Analyst error."
+        confidence_str = "N/A"
     elif disputed:
         verdict_summary = (
             "Inconclusive — One or more HIGH-severity findings were disputed by human. "
             "Requires further investigation."
         )
-    elif confidence >= 80 and not (analyst_data.get("discrepancies") or []):
-        verdict_summary = "Authentication supported — No critical discrepancies; book aligns with Master Bibliography."
-    elif confidence >= 50:
+        confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
+    elif confidence_valid and confidence >= 80 and num_high == 0:
+        verdict_summary = "✅ AUTHENTICATION SUPPORTED"
+        confidence_str = f"{confidence}/100"
+    elif confidence_valid and confidence >= 50:
         verdict_summary = "Inconclusive — Discrepancies present; recommend physical re-inspection."
-    else:
+        confidence_str = f"{confidence}/100"
+    elif confidence_valid:
         verdict_summary = "Authentication not supported — Critical mismatches indicate forgery risk or wrong edition."
+        confidence_str = f"{confidence}/100"
+    else:
+        verdict_summary = "Inconclusive — Analyst data unavailable."
+        confidence_str = "N/A"
 
     lines.extend([
         "",
@@ -834,7 +850,7 @@ def build_forensic_report(
         "  FINAL VERDICT",
         "───────────────────────────────────────────────────────────────",
         "",
-        f"  Confidence Score: {confidence}/100",
+        f"  Confidence Score: {confidence_str}",
         "",
         f"  {verdict_summary}",
         "",
