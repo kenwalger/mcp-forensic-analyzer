@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.3] - 2026-03-12
+
+### Fixed
+
+- **Circuit-breaker verdict logic:** If num_high > 0, verdict is ALWAYS "Authentication not supported" regardless of confidence. Aligns code with prompts.yaml/CHANGELOG: "Any HIGH discrepancies = Authentication Not Supported". Refined thresholds: num_high == 0 and 80+ = Supported; num_high == 0 and 50–79 = Inconclusive; otherwise = Not supported.
+
 ## [0.15.2] - 2026-03-12
 
 ### Fixed

@@ -828,8 +828,8 @@ def build_forensic_report(
         ])
 
     # Final Verdict (Post 3.3 — The Auditor)
-    # Authentication supported if confidence >= 80 and zero HIGH-severity discrepancies.
-    # LOW-severity findings (e.g. publisher name gap) do not block a positive verdict.
+    # Circuit-breaker: any HIGH discrepancies = Authentication Not Supported (per prompts.yaml).
+    # If num_high == 0: 80+ = Supported, 50–79 = Inconclusive, else = Not supported.
     num_high = sum(
         1 for d in disc
         if isinstance(d, dict) and (d.get("severity") or "").upper() == "HIGH"
@@ -843,14 +843,17 @@ def build_forensic_report(
             "Requires further investigation."
         )
         confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
-    elif confidence_valid and confidence >= 80 and num_high == 0:
+    elif num_high > 0:
+        verdict_summary = "Authentication not supported — HIGH-severity discrepancies indicate forgery risk or wrong edition."
+        confidence_str = f"{confidence}/100" if confidence_valid else "N/A"
+    elif confidence_valid and confidence >= 80:
         verdict_summary = "✅ AUTHENTICATION SUPPORTED"
         confidence_str = f"{confidence}/100"
     elif confidence_valid and confidence >= 50:
         verdict_summary = "Inconclusive — Discrepancies present; recommend physical re-inspection."
         confidence_str = f"{confidence}/100"
     elif confidence_valid:
-        verdict_summary = "Authentication not supported — Critical mismatches indicate forgery risk or wrong edition."
+        verdict_summary = "Authentication not supported — Confidence below threshold."
         confidence_str = f"{confidence}/100"
     else:
         verdict_summary = "Inconclusive — Analyst data unavailable."
