@@ -127,11 +127,14 @@ def _load_prompts() -> dict[str, Any]:
         )
     with open(PROMPTS_PATH, encoding="utf-8") as f:
         data = yaml.safe_load(f)
+    auditor = data.get("auditor") or {}
+    auditor_persona = (auditor.get("persona") or "").strip() if isinstance(auditor, dict) else ""
     result: dict[str, Any] = {
         "local_slm_system_prefix": (data.get("local_slm_system_prefix") or "").strip(),
         "supervisor_system": (data.get("supervisor_system") or "").strip(),
         "accountant": data.get("accountant") or {},
         "guardian": data.get("guardian") or {},
+        "auditor_persona": auditor_persona,
     }
     if PROMPTS_THE_JUDGE_PATH.exists():
         with open(PROMPTS_THE_JUDGE_PATH, encoding="utf-8") as f:
@@ -613,11 +616,11 @@ async def _apply_guardian_handshake(
     disputed_keys: set[tuple[str, str, str, str]] = set()
     stdin_closed = False
     for d in high_disc:
-        summary = (
+        description = (
             f"[{d.get('severity', '?')}] {d.get('field', '')}: "
             f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'"
         )
-        print(f"\n  Guardian: HIGH severity finding — {summary}")
+        print(f"\n  🔴 HIGH SEVERITY FINDING: {description}")
         if stdin_closed:
             answer = "no"
         else:
@@ -627,7 +630,8 @@ async def _apply_guardian_handshake(
                 # stdin_closed state ensures we skip further input() calls and proceed gracefully.
                 answer = await asyncio.wait_for(
                     asyncio.to_thread(
-                        input, "  Do you authorize this forensic finding? (yes/no): "
+                        input,
+                        "  Authorize this finding to finalize report? (y/n): ",
                     ),
                     timeout=300,
                 )
@@ -710,7 +714,15 @@ def build_forensic_report(
     vision_context: str | None = None,
     vision_error_message: str | None = None,
 ) -> str:
-    """Supervisor: Combine Librarian and Analyst findings into a Forensic Report."""
+    """
+    The Auditor: Synthesize vision_context (The Eye) and librarian_data (Master Bibliography)
+    into a coherent Forensic Report with Final Verdict (Confidence Score 0-100).
+    """
+    librarian_data: dict = librarian_result.get("data") or {}
+    analyst_data: dict = analyst_result.get("data") or {}
+    disputed: list[dict] = disputed_discrepancies or []
+    confidence = 0
+
     lines = [
         "═══════════════════════════════════════════════════════════════",
         "                    FORENSIC REPORT",
@@ -729,17 +741,17 @@ def build_forensic_report(
         lines.append(f"  Status: ERROR")
         lines.append(f"  {librarian_result.get('message', 'Unknown error')}")
     else:
-        data = librarian_result.get("data") or {}
-        if data.get("found"):
-            lines.append(f"  Status: Found {data.get('message', '')}")
-            if data.get("book_standards"):
-                std = data["book_standards"][0]
+        if librarian_data.get("found"):
+            lines.append(f"  Status: Found {librarian_data.get('message', '')}")
+            book_standards = librarian_data.get("book_standards") or []
+            if book_standards:
+                std = book_standards[0] if isinstance(book_standards[0], dict) else {}
                 lines.append(f"  Publisher: {std.get('publisher', 'N/A')}")
                 lines.append(f"  Expected Year: {std.get('expected_first_edition_year', 'N/A')}")
                 lines.append(f"  Binding: {std.get('binding_type', 'N/A')}")
         else:
             lines.append(f"  Status: Not Found")
-            lines.append(f"  {data.get('message', 'N/A')}")
+            lines.append(f"  {librarian_data.get('message', 'N/A')}")
 
     lines.extend([
         "",
@@ -752,19 +764,19 @@ def build_forensic_report(
         lines.append(f"  Status: ERROR")
         lines.append(f"  {analyst_result.get('message', 'Unknown error')}")
     else:
-        data = analyst_result.get("data") or {}
-        consistent = data.get("is_consistent", False)
-        confidence = data.get("confidence_score", 0)
+        consistent = bool(analyst_data.get("is_consistent", False))
+        confidence = int(analyst_data.get("confidence_score", 0)) if analyst_data.get("confidence_score") is not None else 0
+        confidence = max(0, min(100, confidence))
         lines.append(f"  Consistency: {'PASS' if consistent else 'FAIL'}")
         lines.append(f"  Confidence: {confidence}%")
 
-        disc = data.get("discrepancies", [])
-        disputed = disputed_discrepancies or []
+        disc = analyst_data.get("discrepancies") or []
         if disc:
             lines.append("  Discrepancies:")
             for d in disc:
-                lines.append(f"    - [{d.get('severity', '?')}] {d.get('field', '')}: "
-                            f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
+                if isinstance(d, dict):
+                    lines.append(f"    - [{d.get('severity', '?')}] {d.get('field', '')}: "
+                                f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
         else:
             lines.append("  Discrepancies: None")
 
@@ -776,10 +788,11 @@ def build_forensic_report(
                 "───────────────────────────────────────────────────────────────",
             ])
             for d in disputed:
-                lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
-                            f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
+                if isinstance(d, dict):
+                    lines.append(f"    - [DISPUTED_BY_HUMAN] {d.get('field', '')}: "
+                                f"expected '{d.get('expected', '')}' vs observed '{d.get('observed', '')}'")
 
-    analyst_data = analyst_result.get("data") or {}
+    # Vision synthesis (Sovereign Vault — The Eye)
     vf = (analyst_data.get("visual_findings") or vision_context or "").strip()
     if vf:
         lines.extend([
@@ -800,7 +813,30 @@ def build_forensic_report(
             f"  Status: Failed — {vision_error_message}",
         ])
 
+    # Final Verdict (Post 3.3 — The Auditor)
+    if analyst_result.get("error"):
+        verdict_summary = "Inconclusive — Analyst error."
+    elif disputed:
+        verdict_summary = (
+            "Inconclusive — One or more HIGH-severity findings were disputed by human. "
+            "Requires further investigation."
+        )
+    elif confidence >= 80 and not (analyst_data.get("discrepancies") or []):
+        verdict_summary = "Authentication supported — No critical discrepancies; book aligns with Master Bibliography."
+    elif confidence >= 50:
+        verdict_summary = "Inconclusive — Discrepancies present; recommend physical re-inspection."
+    else:
+        verdict_summary = "Authentication not supported — Critical mismatches indicate forgery risk or wrong edition."
+
     lines.extend([
+        "",
+        "───────────────────────────────────────────────────────────────",
+        "  FINAL VERDICT",
+        "───────────────────────────────────────────────────────────────",
+        "",
+        f"  Confidence Score: {confidence}/100",
+        "",
+        f"  {verdict_summary}",
         "",
         "═══════════════════════════════════════════════════════════════",
         "                    END OF REPORT",
@@ -917,6 +953,9 @@ async def run_forensic_audit(
                     async with get_model_client(provider) as complete:
                         prompts = _get_prompts()
                         system = prompts["supervisor_system"]
+                        auditor_persona = prompts.get("auditor_persona") or ""
+                        if auditor_persona.strip():
+                            system = auditor_persona.strip() + "\n\n" + system
                         if guardian_enabled:
                             guardian_prefix = (prompts.get("guardian") or {}).get("system_prefix") or ""
                             if guardian_prefix.strip():

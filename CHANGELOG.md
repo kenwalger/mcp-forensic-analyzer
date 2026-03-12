@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.5] - 2026-03-10
+## [0.15.0] - 2026-03-12
+
+### Added
+
+- **Post 3.3 — The Auditor and The Guardian**
+  - **The Auditor (Senior Forensic Bibliographer):** config/prompts.yaml auditor persona; build_forensic_report synthesizes vision_context (The Eye) and librarian_data (Master Bibliography). Injected into Supervisor when LLM provider is set.
+  - **Guardian prompt update:** "🔴 HIGH SEVERITY FINDING: [Description]. Authorize this finding to finalize report? (y/n)". If user denies (n), finding flagged DISPUTED_BY_HUMAN.
+  - **Final Verdict section:** Confidence Score (0-100) and clear summary — authentication supported / inconclusive / not supported. Verdict accounts for disputed findings.
+  - **Type-safe dict handling:** build_forensic_report uses librarian_data, analyst_data with .get() and isinstance(d, dict) guards. Confidence clamped to 0-100.
 
 ### Fixed
 
